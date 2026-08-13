@@ -1,9 +1,88 @@
 package com.classeschedule.widget;
-import android.app.*;import android.appwidget.*;import android.content.*;import android.widget.*;import java.util.*;import org.json.*;
-public class ScheduleWidgetProvider extends AppWidgetProvider{
- public void onUpdate(Context c,AppWidgetManager m,int[] ids){for(int id:ids)update(c,m,id);}
- public void onReceive(Context c,Intent i){super.onReceive(c,i);if("com.classeschedule.widget.UPDATE".equals(i.getAction())){AppWidgetManager m=AppWidgetManager.getInstance(c);for(int id:m.getAppWidgetIds(new ComponentName(c,ScheduleWidgetProvider.class)))update(c,m,id);}}
- static void update(Context c,AppWidgetManager m,int id){RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);JSONObject o=next(c);if(o==null){v.setTextViewText(R.id.widget_subject,"No class scheduled");v.setTextViewText(R.id.widget_time,"Open the app to add classes");v.setTextViewText(R.id.widget_room,"");v.setTextViewText(R.id.widget_teacher,"");}else{v.setTextViewText(R.id.widget_subject,o.optString("subject"));v.setTextViewText(R.id.widget_time,o.optString("time"));v.setTextViewText(R.id.widget_room,o.optString("room"));v.setTextViewText(R.id.widget_teacher,o.optString("teacher"));}Intent x=new Intent(c,MainActivity.class);v.setOnClickPendingIntent(R.id.widget_subject,PendingIntent.getActivity(c,0,x,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT));m.updateAppWidget(id,v);}
- static JSONObject next(Context c){try{JSONArray a=new JSONArray(c.getSharedPreferences("schedule",0).getString("classes","[]"));Calendar n=Calendar.getInstance();int today=n.get(Calendar.DAY_OF_WEEK)-Calendar.MONDAY;if(today<0)today+=7;int now=n.get(Calendar.HOUR_OF_DAY)*60+n.get(Calendar.MINUTE);JSONObject best=null;int bd=1000000;for(int i=0;i<a.length();i++){JSONObject o=a.getJSONObject(i);int d=o.optInt("day");int t=parse(o.optString("start"));if(t<0)continue;int delta=((d-today+7)%7)*1440+t-now;if(delta<0)delta+=10080;if(delta<bd){bd=delta;best=o;}}return best;}catch(Exception e){return null;}}
- static int parse(String s){try{String x=s.toUpperCase().trim();boolean pm=x.contains("PM"),am=x.contains("AM");x=x.replace("AM","").replace("PM","").trim();String[] p=x.split(":");int h=Integer.parseInt(p[0].trim()),m=Integer.parseInt(p[1].trim().replaceAll("[^0-9].*",""));if(pm&&h<12)h+=12;if(am&&h==12)h=0;return h*60+m;}catch(Exception e){return -1;}}
+
+import android.app.*;
+import android.appwidget.*;
+import android.content.*;
+import android.os.Bundle;
+import android.widget.RemoteViews;
+import org.json.*;
+import java.util.*;
+
+public class ScheduleWidgetProvider extends AppWidgetProvider {
+    @Override public void onUpdate(Context c, AppWidgetManager m, int[] ids) {
+        for(int id:ids) update(c,m,id);
+    }
+
+    @Override public void onReceive(Context c, Intent i) {
+        super.onReceive(c,i);
+        String a=i.getAction();
+        if("com.classeschedule.widget.UPDATE".equals(a)
+            || Intent.ACTION_TIME_CHANGED.equals(a)
+            || Intent.ACTION_TIMEZONE_CHANGED.equals(a)
+            || Intent.ACTION_DATE_CHANGED.equals(a)) {
+            AppWidgetManager m=AppWidgetManager.getInstance(c);
+            int[] ids=m.getAppWidgetIds(new ComponentName(c,ScheduleWidgetProvider.class));
+            for(int id:ids) update(c,m,id);
+        }
+    }
+
+    private static int minutes(String s) {
+        try {
+            s=s.trim().toUpperCase(Locale.US);
+            String[] p=s.split(":");
+            int h=Integer.parseInt(p[0]);
+            int m=Integer.parseInt(p[1].trim().split("\\s+")[0]);
+            boolean pm=s.contains("PM");
+            if(pm&&h<12)h+=12;
+            if(!pm&&s.contains("AM")&&h==12)h=0;
+            return h*60+m;
+        } catch(Exception e){ return 9999; }
+    }
+
+    private static JSONObject next(Context c) {
+        JSONArray a;
+        try { a=new JSONArray(c.getSharedPreferences("schedule",0).getString("classes","[]")); }
+        catch(Exception e){ return null; }
+
+        Calendar now=Calendar.getInstance();
+        int today=now.get(Calendar.DAY_OF_WEEK)==Calendar.SUNDAY ? 6 : now.get(Calendar.DAY_OF_WEEK)-Calendar.MONDAY;
+        int nowMin=now.get(Calendar.HOUR_OF_DAY)*60+now.get(Calendar.MINUTE);
+        JSONObject best=null;
+        int bestDelta=Integer.MAX_VALUE;
+
+        for(int i=0;i<a.length();i++) try {
+            JSONObject o=a.getJSONObject(i);
+            int d=o.optInt("day",-1);
+            if(d<0||d>6) continue;
+            int t=minutes(o.optString("start"));
+            if(t==9999) continue;
+            int delta=(d-today+7)%7;
+            if(delta==0 && t<=nowMin) delta=7;
+            int score=delta*1440+t-nowMin;
+            if(score<bestDelta){bestDelta=score;best=o;}
+        } catch(Exception ignored){}
+        return best;
+    }
+
+    static void update(Context c, AppWidgetManager m, int id) {
+        RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);
+        JSONObject o=next(c);
+        if(o==null){
+            v.setTextViewText(R.id.widget_label,"NEXT CLASS");
+            v.setTextViewText(R.id.widget_subject,"No classes scheduled");
+            v.setTextViewText(R.id.widget_time,"Open app to add your schedule");
+            v.setTextViewText(R.id.widget_room,"");
+            v.setTextViewText(R.id.widget_teacher,"");
+        } else {
+            v.setTextViewText(R.id.widget_label,"NEXT CLASS");
+            v.setTextViewText(R.id.widget_subject,o.optString("subject"));
+            v.setTextViewText(R.id.widget_time,o.optString("start")+" - "+o.optString("end"));
+            v.setTextViewText(R.id.widget_room,o.optString("room"));
+            v.setTextViewText(R.id.widget_teacher,o.optString("teacher"));
+        }
+        Intent x=new Intent(c,MainActivity.class);
+        PendingIntent p=PendingIntent.getActivity(c,0,x,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+        v.setOnClickPendingIntent(R.id.widget_root,p);
+        m.updateAppWidget(id,v);
+    }
 }
