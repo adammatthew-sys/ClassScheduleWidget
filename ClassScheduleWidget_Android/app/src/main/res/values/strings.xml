@@ -1,1 +1,4 @@
-<resources><string name="app_name">Class Schedule</string></resources>
+<resources>
+    <string name="app_name">Class Schedule</string>
+    <string name="widget_description">Shows your next class with time, room and teacher.</string>
+</resources>
