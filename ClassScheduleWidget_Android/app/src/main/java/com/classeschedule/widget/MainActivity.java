@@ -163,15 +163,19 @@ public class MainActivity extends Activity {
                     o.put("room",room.getText().toString().trim());
                     o.put("teacher",teacher.getText().toString().trim());
                     if(idx<0) a.put(o);
-                    save(a); refresh();
+                    save(a); refresh(); ScheduleWidgetProvider.refreshAll(this);
                 } catch(Exception ignored){}
             })
             .setNegativeButton("Cancel",null)
             .create();
 
         if(idx>=0) dialog.setButton(AlertDialog.BUTTON_NEUTRAL,"Delete",(x,w)->{
-            JSONArray n=data(); n.remove(idx); save(n); refresh();
+            JSONArray n=data(); n.remove(idx); save(n); refresh(); ScheduleWidgetProvider.refreshAll(this);
         });
         dialog.show();
+    }
+    @Override protected void onPause() {
+        super.onPause();
+        ScheduleWidgetProvider.refreshAll(this);
     }
 }
