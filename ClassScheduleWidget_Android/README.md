@@ -1,0 +1,2 @@
+Class Schedule Android widget prototype.
+No Android Studio is required for building: upload this project to GitHub, open Actions, choose Build Android APK, and run it manually. The APK will appear as a workflow artifact. This first build uses a sample class; the next version will connect the widget to the schedule app.
