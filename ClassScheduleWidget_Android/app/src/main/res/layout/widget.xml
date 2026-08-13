@@ -1,4 +1,5 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:orientation="vertical"
     android:padding="10dp"
     android:background="@drawable/widget_bg"
