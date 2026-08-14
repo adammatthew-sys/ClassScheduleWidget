@@ -4,11 +4,15 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -20,6 +24,7 @@ import java.io.InputStream;
 public class CropActivity extends Activity {
 
     private ImageView imageView;
+    private View cropFrame;
     private Bitmap originalBitmap;
 
     private float scale = 1f;
@@ -32,7 +37,8 @@ public class CropActivity extends Activity {
 
     private ScaleGestureDetector scaleDetector;
 
-    // Same landscape ratio as the widget
+    // Widget crop ratio.
+    // Landscape so the crop screen matches the widget style.
     private static final float CROP_RATIO = 16f / 9f;
 
     @Override
@@ -42,114 +48,260 @@ public class CropActivity extends Activity {
         setContentView(R.layout.activity_crop);
 
         imageView = findViewById(R.id.cropImage);
+        cropFrame = findViewById(R.id.cropFrame);
 
         Button useButton = findViewById(R.id.cropUseButton);
         Button cancelButton = findViewById(R.id.cropCancelButton);
 
-        String uriString = getIntent().getStringExtra("imageUri");
+        String uriString =
+                getIntent().getStringExtra("imageUri");
 
         if (uriString == null || uriString.isEmpty()) {
-            Toast.makeText(this, "Unable to load image", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    "Unable to load image",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             finish();
             return;
         }
 
-        try {
-            InputStream in = getContentResolver()
-                    .openInputStream(Uri.parse(uriString));
+        loadImage(uriString);
 
-            originalBitmap = BitmapFactory.decodeStream(in);
+        scaleDetector =
+                new ScaleGestureDetector(
+                        this,
+                        new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+
+                            @Override
+                            public boolean onScale(
+                                    ScaleGestureDetector detector) {
+
+                                scale *= detector.getScaleFactor();
+
+                                if (scale < 1f) {
+                                    scale = 1f;
+                                }
+
+                                if (scale > 6f) {
+                                    scale = 6f;
+                                }
+
+                                applyTransform();
+
+                                return true;
+                            }
+                        }
+                );
+
+        imageView.setOnTouchListener(
+                (v, event) -> {
+
+                    scaleDetector.onTouchEvent(event);
+
+                    switch (event.getActionMasked()) {
+
+                        case MotionEvent.ACTION_DOWN:
+
+                            lastX = event.getX();
+                            lastY = event.getY();
+
+                            dragging = true;
+
+                            return true;
+
+                        case MotionEvent.ACTION_MOVE:
+
+                            if (event.getPointerCount() == 1 &&
+                                    dragging) {
+
+                                float dx =
+                                        event.getX() - lastX;
+
+                                float dy =
+                                        event.getY() - lastY;
+
+                                posX += dx;
+                                posY += dy;
+
+                                lastX = event.getX();
+                                lastY = event.getY();
+
+                                applyTransform();
+                            }
+
+                            return true;
+
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+
+                            dragging = false;
+
+                            return true;
+                    }
+
+                    return true;
+                }
+        );
+
+        useButton.setOnClickListener(
+                v -> cropAndSave()
+        );
+
+        cancelButton.setOnClickListener(
+                v -> finish()
+        );
+
+        cropFrame.post(
+                this::applyCropFrameRatio
+        );
+    }
+
+    private void loadImage(String uriString) {
+
+        try {
+
+            InputStream in =
+                    getContentResolver()
+                            .openInputStream(
+                                    Uri.parse(uriString)
+                            );
+
+            originalBitmap =
+                    BitmapFactory.decodeStream(in);
 
             if (in != null) {
                 in.close();
             }
 
             if (originalBitmap == null) {
-                Toast.makeText(this, "Unable to load image", Toast.LENGTH_SHORT).show();
-                finish();
-                return;
+                throw new Exception();
             }
 
-            imageView.setImageBitmap(originalBitmap);
-            imageView.setScaleType(ImageView.ScaleType.MATRIX);
+            imageView.setImageBitmap(
+                    originalBitmap
+            );
+
+            imageView.setScaleType(
+                    ImageView.ScaleType.MATRIX
+            );
+
+            cropFrame.post(
+                    this::applyInitialTransform
+            );
 
         } catch (Exception e) {
-            Toast.makeText(this, "Unable to load image", Toast.LENGTH_SHORT).show();
+
+            Toast.makeText(
+                    this,
+                    "Unable to load image",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             finish();
+        }
+    }
+
+    private void applyCropFrameRatio() {
+
+        if (cropFrame == null) {
             return;
         }
 
-        scaleDetector = new ScaleGestureDetector(
-                this,
-                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        int availableWidth =
+                ((View) cropFrame.getParent()).getWidth();
 
-                    @Override
-                    public boolean onScale(ScaleGestureDetector detector) {
+        int availableHeight =
+                ((View) cropFrame.getParent()).getHeight();
 
-                        scale *= detector.getScaleFactor();
+        if (availableWidth <= 0 ||
+                availableHeight <= 0) {
+            return;
+        }
 
-                        if (scale < 0.5f) {
-                            scale = 0.5f;
-                        }
+        int frameWidth;
+        int frameHeight;
 
-                        if (scale > 5f) {
-                            scale = 5f;
-                        }
+        if ((float) availableWidth / availableHeight >
+                CROP_RATIO) {
 
-                        applyTransform();
+            frameHeight = availableHeight;
+            frameWidth =
+                    Math.round(
+                            frameHeight * CROP_RATIO
+                    );
 
-                        return true;
-                    }
-                }
+        } else {
+
+            frameWidth = availableWidth;
+            frameHeight =
+                    Math.round(
+                            frameWidth / CROP_RATIO
+                    );
+        }
+
+        android.view.ViewGroup.LayoutParams lp =
+                cropFrame.getLayoutParams();
+
+        lp.width = frameWidth;
+        lp.height = frameHeight;
+
+        cropFrame.setLayoutParams(lp);
+
+        cropFrame.post(
+                this::applyInitialTransform
+        );
+    }
+
+    private void applyInitialTransform() {
+
+        if (originalBitmap == null ||
+                imageView.getWidth() <= 0 ||
+                imageView.getHeight() <= 0) {
+            return;
+        }
+
+        float viewWidth =
+                imageView.getWidth();
+
+        float viewHeight =
+                imageView.getHeight();
+
+        float bitmapWidth =
+                originalBitmap.getWidth();
+
+        float bitmapHeight =
+                originalBitmap.getHeight();
+
+        float baseScale =
+                Math.max(
+                        viewWidth / bitmapWidth,
+                        viewHeight / bitmapHeight
+                );
+
+        scale = 1f;
+        posX = 0f;
+        posY = 0f;
+
+        Matrix matrix =
+                new Matrix();
+
+        matrix.setScale(
+                baseScale,
+                baseScale
         );
 
-        imageView.setOnTouchListener((v, event) -> {
+        matrix.postTranslate(
+                (viewWidth -
+                        bitmapWidth * baseScale) / 2f,
+                (viewHeight -
+                        bitmapHeight * baseScale) / 2f
+        );
 
-            scaleDetector.onTouchEvent(event);
-
-            switch (event.getActionMasked()) {
-
-                case MotionEvent.ACTION_DOWN:
-
-                    lastX = event.getX();
-                    lastY = event.getY();
-
-                    dragging = true;
-
-                    return true;
-
-                case MotionEvent.ACTION_MOVE:
-
-                    if (event.getPointerCount() == 1 && dragging) {
-
-                        float dx = event.getX() - lastX;
-                        float dy = event.getY() - lastY;
-
-                        posX += dx;
-                        posY += dy;
-
-                        lastX = event.getX();
-                        lastY = event.getY();
-
-                        applyTransform();
-                    }
-
-                    return true;
-
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-
-                    dragging = false;
-
-                    return true;
-            }
-
-            return true;
-        });
-
-        useButton.setOnClickListener(v -> cropAndSave());
-
-        cancelButton.setOnClickListener(v -> finish());
+        imageView.setImageMatrix(
+                matrix
+        );
     }
 
     private void applyTransform() {
@@ -158,24 +310,62 @@ public class CropActivity extends Activity {
             return;
         }
 
-        float centerX = imageView.getWidth() / 2f;
-        float centerY = imageView.getHeight() / 2f;
+        float viewWidth =
+                imageView.getWidth();
 
-        Matrix matrix = new Matrix();
+        float viewHeight =
+                imageView.getHeight();
 
-        matrix.postScale(
-                scale,
-                scale,
-                centerX,
-                centerY
+        if (viewWidth <= 0 ||
+                viewHeight <= 0) {
+            return;
+        }
+
+        float bitmapWidth =
+                originalBitmap.getWidth();
+
+        float bitmapHeight =
+                originalBitmap.getHeight();
+
+        float baseScale =
+                Math.max(
+                        viewWidth / bitmapWidth,
+                        viewHeight / bitmapHeight
+                );
+
+        float totalScale =
+                baseScale * scale;
+
+        float imageWidth =
+                bitmapWidth * totalScale;
+
+        float imageHeight =
+                bitmapHeight * totalScale;
+
+        float left =
+                (viewWidth - imageWidth) / 2f
+                        + posX;
+
+        float top =
+                (viewHeight - imageHeight) / 2f
+                        + posY;
+
+        Matrix matrix =
+                new Matrix();
+
+        matrix.setScale(
+                totalScale,
+                totalScale
         );
 
         matrix.postTranslate(
-                posX,
-                posY
+                left,
+                top
         );
 
-        imageView.setImageMatrix(matrix);
+        imageView.setImageMatrix(
+                matrix
+        );
     }
 
     private void cropAndSave() {
@@ -192,114 +382,109 @@ public class CropActivity extends Activity {
 
         try {
 
-            int viewWidth = imageView.getWidth();
-            int viewHeight = imageView.getHeight();
+            int frameWidth =
+                    cropFrame.getWidth();
 
-            if (viewWidth <= 0 || viewHeight <= 0) {
+            int frameHeight =
+                    cropFrame.getHeight();
+
+            if (frameWidth <= 0 ||
+                    frameHeight <= 0) {
+
                 Toast.makeText(
                         this,
-                        "Please wait for the image to load",
+                        "Crop area is not ready",
                         Toast.LENGTH_SHORT
                 ).show();
 
                 return;
             }
 
-            /*
-             * Create a LANDSCAPE crop area matching
-             * the widget instead of using a square.
-             */
+            float bitmapWidth =
+                    originalBitmap.getWidth();
 
-            float cropWidth;
-            float cropHeight;
+            float bitmapHeight =
+                    originalBitmap.getHeight();
 
-            if ((float) viewWidth / viewHeight > CROP_RATIO) {
+            float baseScale =
+                    Math.max(
+                            frameWidth / bitmapWidth,
+                            frameHeight / bitmapHeight
+                    );
 
-                cropHeight = viewHeight * 0.85f;
-                cropWidth = cropHeight * CROP_RATIO;
-
-            } else {
-
-                cropWidth = viewWidth * 0.85f;
-                cropHeight = cropWidth / CROP_RATIO;
-            }
-
-            float cropLeft =
-                    (viewWidth - cropWidth) / 2f;
-
-            float cropTop =
-                    (viewHeight - cropHeight) / 2f;
-
-            /*
-             * The image is initially centered using MATRIX.
-             * Calculate the actual transformed image.
-             */
-
-            float baseScale = Math.max(
-                    cropWidth / originalBitmap.getWidth(),
-                    cropHeight / originalBitmap.getHeight()
-            );
-
-            float totalScale = baseScale * scale;
+            float totalScale =
+                    baseScale * scale;
 
             float imageWidth =
-                    originalBitmap.getWidth() * totalScale;
+                    bitmapWidth * totalScale;
 
             float imageHeight =
-                    originalBitmap.getHeight() * totalScale;
+                    bitmapHeight * totalScale;
 
             float imageLeft =
-                    (viewWidth - imageWidth) / 2f + posX;
+                    (frameWidth - imageWidth) / 2f
+                            + posX;
 
             float imageTop =
-                    (viewHeight - imageHeight) / 2f + posY;
-
-            /*
-             * Convert the crop rectangle from screen
-             * coordinates back into bitmap coordinates.
-             */
+                    (frameHeight - imageHeight) / 2f
+                            + posY;
 
             float sourceLeft =
-                    (cropLeft - imageLeft) / totalScale;
+                    (-imageLeft) / totalScale;
 
             float sourceTop =
-                    (cropTop - imageTop) / totalScale;
+                    (-imageTop) / totalScale;
 
             float sourceWidth =
-                    cropWidth / totalScale;
+                    frameWidth / totalScale;
 
             float sourceHeight =
-                    cropHeight / totalScale;
+                    frameHeight / totalScale;
 
-            int left = Math.round(sourceLeft);
-            int top = Math.round(sourceTop);
+            int left =
+                    Math.round(sourceLeft);
 
-            int width = Math.round(sourceWidth);
-            int height = Math.round(sourceHeight);
+            int top =
+                    Math.round(sourceTop);
 
-            /*
-             * Keep the crop inside the source bitmap.
-             */
+            int width =
+                    Math.round(sourceWidth);
 
-            if (left < 0) {
-                width += left;
-                left = 0;
-            }
+            int height =
+                    Math.round(sourceHeight);
 
-            if (top < 0) {
-                height += top;
-                top = 0;
-            }
+            left =
+                    Math.max(
+                            0,
+                            Math.min(
+                                    left,
+                                    originalBitmap.getWidth() - 1
+                            )
+                    );
 
-            if (left + width > originalBitmap.getWidth()) {
-                width = originalBitmap.getWidth() - left;
-            }
+            top =
+                    Math.max(
+                            0,
+                            Math.min(
+                                    top,
+                                    originalBitmap.getHeight() - 1
+                            )
+                    );
 
-            if (top + height > originalBitmap.getHeight()) {
-                height = originalBitmap.getHeight() - top;
-            }
+            width =
+                    Math.min(
+                            width,
+                            originalBitmap.getWidth() - left
+                    );
 
-            if (width <= 0 || height <= 0) {
+            height =
+                    Math.min(
+                            height,
+                            originalBitmap.getHeight() - top
+                    );
+
+            if (width <= 0 ||
+                    height <= 0) {
 
                 Toast.makeText(
                         this,
@@ -310,22 +495,20 @@ public class CropActivity extends Activity {
                 return;
             }
 
-            Bitmap cropped = Bitmap.createBitmap(
-                    originalBitmap,
-                    left,
-                    top,
-                    width,
-                    height
-            );
+            Bitmap cropped =
+                    Bitmap.createBitmap(
+                            originalBitmap,
+                            left,
+                            top,
+                            width,
+                            height
+                    );
 
-            /*
-             * Save the cropped image inside the app.
-             */
-
-            File file = new File(
-                    getFilesDir(),
-                    "widget_background.jpg"
-            );
+            File file =
+                    new File(
+                            getFilesDir(),
+                            "widget_background.jpg"
+                    );
 
             FileOutputStream out =
                     new FileOutputStream(file);
@@ -341,13 +524,6 @@ public class CropActivity extends Activity {
 
             cropped.recycle();
 
-            /*
-             * Store the actual file URI.
-             */
-
-            Uri savedUri =
-                    Uri.fromFile(file);
-
             getSharedPreferences(
                     "widget_settings",
                     0
@@ -355,20 +531,16 @@ public class CropActivity extends Activity {
                     .edit()
                     .putString(
                             "bgUri",
-                            savedUri.toString()
+                            file.getAbsolutePath()
                     )
                     .apply();
 
-            Intent result = new Intent();
+            Intent result =
+                    new Intent();
 
             result.putExtra(
                     "croppedPath",
                     file.getAbsolutePath()
-            );
-
-            result.putExtra(
-                    "croppedUri",
-                    savedUri.toString()
             );
 
             setResult(
