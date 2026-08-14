@@ -1,0 +1,42 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#0B0B0B">
+    <LinearLayout android:orientation="vertical" android:padding="18dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+        <TextView android:text="Customize Widget" android:textColor="#FFFFFF" android:textSize="28sp"
+            android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <TextView android:text="Preview" android:textColor="#AAAAAA" android:textSize="14sp"
+            android:layout_marginTop="18dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <FrameLayout android:id="@+id/customPreview" android:layout_width="match_parent" android:layout_height="190dp"
+            android:layout_marginTop="8dp" android:background="#0B0B0B">
+            <ImageView android:id="@+id/previewImage" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:scaleType="centerCrop" android:visibility="gone" android:contentDescription="@null"/>
+            <LinearLayout android:orientation="vertical" android:padding="16dp"
+                android:layout_width="match_parent" android:layout_height="match_parent">
+                <TextView android:id="@+id/previewLabel" android:text="NEXT CLASS" android:textColor="#777777" android:textSize="10sp"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/previewSubject" android:text="Mathematics" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold"
+                    android:layout_marginTop="5dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/previewTime" android:text="7:30 AM - 8:30 AM" android:textColor="#BBBBBB" android:textSize="14sp"
+                    android:layout_marginTop="7dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/previewRoom" android:text="Room 101" android:textColor="#777777" android:textSize="12sp"
+                    android:layout_marginTop="4dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/previewTeacher" android:text="Teacher" android:textColor="#777777" android:textSize="12sp"
+                    android:layout_marginTop="3dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
+        </FrameLayout>
+
+        <Button android:id="@+id/backgroundColorButton" android:text="Background Color"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp"/>
+        <Button android:id="@+id/textColorButton" android:text="Text Color"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/cornerButton" android:text="Corner Roundness"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/imageButton" android:text="Choose Background Image"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/clearImageButton" android:text="Remove Background Image"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/saveButton" android:text="SAVE & UPDATE WIDGET"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"/>
+    </LinearLayout>
+</ScrollView>

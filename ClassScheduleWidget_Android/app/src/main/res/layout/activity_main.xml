@@ -24,5 +24,7 @@
             android:orientation="vertical" android:paddingTop="12dp"/>
         <Button android:id="@+id/addButton" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="+ ADD CLASS"/>
+        <Button android:id="@+id/customizeButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="CUSTOMIZE WIDGET" android:layout_marginTop="8dp"/>
     </LinearLayout>
 </ScrollView>

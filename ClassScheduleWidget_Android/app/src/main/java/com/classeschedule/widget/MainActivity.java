@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
             day = todayIndex();
             refresh();
         });
+        findViewById(R.id.customizeButton).setOnClickListener(v ->
+                startActivity(new Intent(this, CustomizeActivity.class)));
         day = todayIndex();
         refresh();
     }
