@@ -1,6 +1,7 @@
 package com.classeschedule.widget;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -22,10 +23,11 @@ public class CropActivity extends Activity {
     private Bitmap originalBitmap;
 
     private float scale = 1f;
-    private float lastX;
-    private float lastY;
     private float posX = 0f;
     private float posY = 0f;
+
+    private float lastX;
+    private float lastY;
     private boolean dragging = false;
 
     private ScaleGestureDetector scaleDetector;
@@ -65,6 +67,7 @@ public class CropActivity extends Activity {
             }
 
             imageView.setImageBitmap(originalBitmap);
+            imageView.setScaleType(ImageView.ScaleType.MATRIX);
 
         } catch (Exception e) {
             Toast.makeText(this, "Unable to load image", Toast.LENGTH_SHORT).show();
@@ -72,10 +75,14 @@ public class CropActivity extends Activity {
             return;
         }
 
-        scaleDetector = new ScaleGestureDetector(this,
+        scaleDetector = new ScaleGestureDetector(
+                this,
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+
                     @Override
-                    public boolean onScale(ScaleGestureDetector detector) {
+                    public boolean onScale(
+                            ScaleGestureDetector detector) {
+
                         scale *= detector.getScaleFactor();
 
                         if (scale < 0.5f) {
@@ -86,10 +93,12 @@ public class CropActivity extends Activity {
                             scale = 5f;
                         }
 
-                        applyImageTransform();
+                        applyTransform();
+
                         return true;
                     }
-                });
+                }
+        );
 
         imageView.setOnTouchListener((v, event) -> {
 
@@ -98,14 +107,18 @@ public class CropActivity extends Activity {
             switch (event.getActionMasked()) {
 
                 case MotionEvent.ACTION_DOWN:
+
                     lastX = event.getX();
                     lastY = event.getY();
+
                     dragging = true;
+
                     return true;
 
                 case MotionEvent.ACTION_MOVE:
 
                     if (event.getPointerCount() == 1 && dragging) {
+
                         float dx = event.getX() - lastX;
                         float dy = event.getY() - lastY;
 
@@ -115,14 +128,16 @@ public class CropActivity extends Activity {
                         lastX = event.getX();
                         lastY = event.getY();
 
-                        applyImageTransform();
+                        applyTransform();
                     }
 
                     return true;
 
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+
                     dragging = false;
+
                     return true;
             }
 
@@ -134,49 +149,132 @@ public class CropActivity extends Activity {
         cancelButton.setOnClickListener(v -> finish());
     }
 
-    private void applyImageTransform() {
+    private void applyTransform() {
+
+        if (originalBitmap == null) {
+            return;
+        }
 
         Matrix matrix = new Matrix();
+
+        float centerX = imageView.getWidth() / 2f;
+        float centerY = imageView.getHeight() / 2f;
 
         matrix.postScale(
                 scale,
                 scale,
-                imageView.getWidth() / 2f,
-                imageView.getHeight() / 2f
+                centerX,
+                centerY
         );
 
-        matrix.postTranslate(posX, posY);
+        matrix.postTranslate(
+                posX,
+                posY
+        );
 
         imageView.setImageMatrix(matrix);
-        imageView.setScaleType(ImageView.ScaleType.MATRIX);
     }
 
     private void cropAndSave() {
 
         if (originalBitmap == null) {
-            Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    "No image selected",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             return;
         }
 
         try {
 
-            int cropSize = Math.min(
-                    originalBitmap.getWidth(),
-                    originalBitmap.getHeight()
+            int viewWidth = imageView.getWidth();
+            int viewHeight = imageView.getHeight();
+
+            if (viewWidth <= 0 || viewHeight <= 0) {
+                Toast.makeText(
+                        this,
+                        "Please wait for the image to load",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                return;
+            }
+
+            int cropViewSize =
+                    Math.min(viewWidth, viewHeight);
+
+            float baseScale = Math.max(
+                    (float) cropViewSize / originalBitmap.getWidth(),
+                    (float) cropViewSize / originalBitmap.getHeight()
             );
 
-            int left =
-                    (originalBitmap.getWidth() - cropSize) / 2;
+            float totalScale = baseScale * scale;
 
-            int top =
-                    (originalBitmap.getHeight() - cropSize) / 2;
+            float imageWidth =
+                    originalBitmap.getWidth() * totalScale;
+
+            float imageHeight =
+                    originalBitmap.getHeight() * totalScale;
+
+            float imageLeft =
+                    (viewWidth - imageWidth) / 2f + posX;
+
+            float imageTop =
+                    (viewHeight - imageHeight) / 2f + posY;
+
+            float cropLeft =
+                    (viewWidth - cropViewSize) / 2f;
+
+            float cropTop =
+                    (viewHeight - cropViewSize) / 2f;
+
+            float sourceLeft =
+                    (cropLeft - imageLeft) / totalScale;
+
+            float sourceTop =
+                    (cropTop - imageTop) / totalScale;
+
+            float sourceSize =
+                    cropViewSize / totalScale;
+
+            int left = Math.max(
+                    0,
+                    Math.round(sourceLeft)
+            );
+
+            int top = Math.max(
+                    0,
+                    Math.round(sourceTop)
+            );
+
+            int size = Math.round(sourceSize);
+
+            if (left + size > originalBitmap.getWidth()) {
+                size = originalBitmap.getWidth() - left;
+            }
+
+            if (top + size > originalBitmap.getHeight()) {
+                size = originalBitmap.getHeight() - top;
+            }
+
+            if (size <= 0) {
+                Toast.makeText(
+                        this,
+                        "Invalid crop area",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                return;
+            }
 
             Bitmap cropped = Bitmap.createBitmap(
                     originalBitmap,
                     left,
                     top,
-                    cropSize,
-                    cropSize
+                    size,
+                    size
             );
 
             File file = new File(
@@ -201,14 +299,24 @@ public class CropActivity extends Activity {
             getSharedPreferences(
                     "widget_settings",
                     0
-            ).edit()
+            )
+                    .edit()
                     .putString(
                             "bgUri",
-                            Uri.fromFile(file).toString()
+                            file.getAbsolutePath()
                     )
                     .apply();
 
-            setResult(RESULT_OK);
+            Intent result = new Intent();
+            result.putExtra(
+                    "croppedPath",
+                    file.getAbsolutePath()
+            );
+
+            setResult(
+                    RESULT_OK,
+                    result
+            );
 
             Toast.makeText(
                     this,
