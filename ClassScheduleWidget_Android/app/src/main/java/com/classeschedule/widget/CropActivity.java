@@ -32,9 +32,13 @@ public class CropActivity extends Activity {
 
     private ScaleGestureDetector scaleDetector;
 
+    // Same landscape ratio as the widget
+    private static final float CROP_RATIO = 16f / 9f;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_crop);
 
         imageView = findViewById(R.id.cropImage);
@@ -80,8 +84,7 @@ public class CropActivity extends Activity {
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
 
                     @Override
-                    public boolean onScale(
-                            ScaleGestureDetector detector) {
+                    public boolean onScale(ScaleGestureDetector detector) {
 
                         scale *= detector.getScaleFactor();
 
@@ -155,10 +158,10 @@ public class CropActivity extends Activity {
             return;
         }
 
-        Matrix matrix = new Matrix();
-
         float centerX = imageView.getWidth() / 2f;
         float centerY = imageView.getHeight() / 2f;
+
+        Matrix matrix = new Matrix();
 
         matrix.postScale(
                 scale,
@@ -202,12 +205,39 @@ public class CropActivity extends Activity {
                 return;
             }
 
-            int cropViewSize =
-                    Math.min(viewWidth, viewHeight);
+            /*
+             * Create a LANDSCAPE crop area matching
+             * the widget instead of using a square.
+             */
+
+            float cropWidth;
+            float cropHeight;
+
+            if ((float) viewWidth / viewHeight > CROP_RATIO) {
+
+                cropHeight = viewHeight * 0.85f;
+                cropWidth = cropHeight * CROP_RATIO;
+
+            } else {
+
+                cropWidth = viewWidth * 0.85f;
+                cropHeight = cropWidth / CROP_RATIO;
+            }
+
+            float cropLeft =
+                    (viewWidth - cropWidth) / 2f;
+
+            float cropTop =
+                    (viewHeight - cropHeight) / 2f;
+
+            /*
+             * The image is initially centered using MATRIX.
+             * Calculate the actual transformed image.
+             */
 
             float baseScale = Math.max(
-                    (float) cropViewSize / originalBitmap.getWidth(),
-                    (float) cropViewSize / originalBitmap.getHeight()
+                    cropWidth / originalBitmap.getWidth(),
+                    cropHeight / originalBitmap.getHeight()
             );
 
             float totalScale = baseScale * scale;
@@ -224,11 +254,10 @@ public class CropActivity extends Activity {
             float imageTop =
                     (viewHeight - imageHeight) / 2f + posY;
 
-            float cropLeft =
-                    (viewWidth - cropViewSize) / 2f;
-
-            float cropTop =
-                    (viewHeight - cropViewSize) / 2f;
+            /*
+             * Convert the crop rectangle from screen
+             * coordinates back into bitmap coordinates.
+             */
 
             float sourceLeft =
                     (cropLeft - imageLeft) / totalScale;
@@ -236,30 +265,42 @@ public class CropActivity extends Activity {
             float sourceTop =
                     (cropTop - imageTop) / totalScale;
 
-            float sourceSize =
-                    cropViewSize / totalScale;
+            float sourceWidth =
+                    cropWidth / totalScale;
 
-            int left = Math.max(
-                    0,
-                    Math.round(sourceLeft)
-            );
+            float sourceHeight =
+                    cropHeight / totalScale;
 
-            int top = Math.max(
-                    0,
-                    Math.round(sourceTop)
-            );
+            int left = Math.round(sourceLeft);
+            int top = Math.round(sourceTop);
 
-            int size = Math.round(sourceSize);
+            int width = Math.round(sourceWidth);
+            int height = Math.round(sourceHeight);
 
-            if (left + size > originalBitmap.getWidth()) {
-                size = originalBitmap.getWidth() - left;
+            /*
+             * Keep the crop inside the source bitmap.
+             */
+
+            if (left < 0) {
+                width += left;
+                left = 0;
             }
 
-            if (top + size > originalBitmap.getHeight()) {
-                size = originalBitmap.getHeight() - top;
+            if (top < 0) {
+                height += top;
+                top = 0;
             }
 
-            if (size <= 0) {
+            if (left + width > originalBitmap.getWidth()) {
+                width = originalBitmap.getWidth() - left;
+            }
+
+            if (top + height > originalBitmap.getHeight()) {
+                height = originalBitmap.getHeight() - top;
+            }
+
+            if (width <= 0 || height <= 0) {
+
                 Toast.makeText(
                         this,
                         "Invalid crop area",
@@ -273,9 +314,13 @@ public class CropActivity extends Activity {
                     originalBitmap,
                     left,
                     top,
-                    size,
-                    size
+                    width,
+                    height
             );
+
+            /*
+             * Save the cropped image inside the app.
+             */
 
             File file = new File(
                     getFilesDir(),
@@ -296,6 +341,13 @@ public class CropActivity extends Activity {
 
             cropped.recycle();
 
+            /*
+             * Store the actual file URI.
+             */
+
+            Uri savedUri =
+                    Uri.fromFile(file);
+
             getSharedPreferences(
                     "widget_settings",
                     0
@@ -303,14 +355,20 @@ public class CropActivity extends Activity {
                     .edit()
                     .putString(
                             "bgUri",
-                            file.getAbsolutePath()
+                            savedUri.toString()
                     )
                     .apply();
 
             Intent result = new Intent();
+
             result.putExtra(
                     "croppedPath",
                     file.getAbsolutePath()
+            );
+
+            result.putExtra(
+                    "croppedUri",
+                    savedUri.toString()
             );
 
             setResult(
