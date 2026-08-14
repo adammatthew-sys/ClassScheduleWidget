@@ -89,7 +89,13 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         v.setTextColor(R.id.widget_time,text);
         v.setTextColor(R.id.widget_room,text);
         v.setTextColor(R.id.widget_teacher,text);
-        int bgRes=radius<=0?R.drawable.widget_bg_square:radius<=12?R.drawable.widget_bg_slight:R.drawable.widget_bg_round:R.drawable.widget_bg_veryround;
+       int bgRes = radius <= 0
+        ? R.drawable.widget_bg_square
+        : radius <= 12
+            ? R.drawable.widget_bg_slight
+            : radius <= 24
+                ? R.drawable.widget_bg_round
+                : R.drawable.widget_bg_veryround;
         v.setInt(R.id.widget_root,"setBackgroundResource",bgRes);
         v.setInt(R.id.widget_root,"setBackgroundColor",bg);
         if(uri.isEmpty()){
