@@ -8,6 +8,8 @@ import android.net.Uri;
 import android.widget.RemoteViews;
 import java.io.InputStream;
 import java.util.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class ScheduleWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_UPDATE = "com.classeschedule.widget.UPDATE";
