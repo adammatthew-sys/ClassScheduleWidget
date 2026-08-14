@@ -350,6 +350,67 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         // Background image
         if (uri.isEmpty()) {
 
+    v.setViewVisibility(
+            R.id.widget_bg_image,
+            android.view.View.GONE
+    );
+
+} else {
+
+    try {
+
+        Bitmap bitmap = null;
+
+        Uri imageUri = Uri.parse(uri);
+
+        if ("file".equals(imageUri.getScheme())) {
+
+            bitmap = BitmapFactory.decodeFile(
+                    imageUri.getPath()
+            );
+
+        } else {
+
+            InputStream in =
+                    c.getContentResolver()
+                            .openInputStream(imageUri);
+
+            if (in != null) {
+
+                bitmap = BitmapFactory.decodeStream(in);
+                in.close();
+            }
+        }
+
+        if (bitmap != null) {
+
+            v.setImageViewBitmap(
+                    R.id.widget_bg_image,
+                    bitmap
+            );
+
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    android.view.View.VISIBLE
+            );
+
+        } else {
+
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    android.view.View.GONE
+            );
+        }
+
+    } catch (Exception e) {
+
+        v.setViewVisibility(
+                R.id.widget_bg_image,
+                android.view.View.GONE
+        );
+    }
+}
+
             v.setViewVisibility(
                     R.id.widget_bg_image,
                     android.view.View.GONE
