@@ -21,22 +21,33 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:gravity="center"
         android:background="#000000">
 
-        <ImageView
-            android:id="@+id/cropImage"
+        <FrameLayout
+            android:id="@+id/cropFrame"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:contentDescription="@null"/>
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#000000">
 
-        <View
-            android:id="@+id/cropOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/crop_overlay"
-            android:clickable="false"
-            android:focusable="false"/>
+            <ImageView
+                android:id="@+id/cropImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="matrix"
+                android:contentDescription="@null"/>
+
+            <View
+                android:id="@+id/cropOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/crop_overlay"
+                android:clickable="false"
+                android:focusable="false"/>
+
+        </FrameLayout>
 
     </FrameLayout>
 
