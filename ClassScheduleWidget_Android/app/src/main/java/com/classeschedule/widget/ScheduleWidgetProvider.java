@@ -1,27 +1,21 @@
+```java
 package com.classeschedule.widget;
 
-import android.app.PendingIntent;
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Path;
-import android.graphics.RectF;
-import android.graphics.drawable.BitmapDrawable;
+import android.app.*;
+import android.appwidget.*;
+import android.content.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
 import android.net.Uri;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import java.io.File;
+import java.io.InputStream;
+import java.util.*;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import java.io.InputStream;
-import java.util.Calendar;
-import java.util.Locale;
 
 public class ScheduleWidgetProvider extends AppWidgetProvider {
 
@@ -30,91 +24,84 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(
-            Context context,
-            AppWidgetManager manager,
-            int[] appWidgetIds) {
+            Context c,
+            AppWidgetManager m,
+            int[] ids) {
 
-        for (int id : appWidgetIds) {
-            update(context, manager, id);
+        for (int id : ids) {
+            update(c, m, id);
         }
     }
 
     @Override
     public void onReceive(
-            Context context,
-            Intent intent) {
+            Context c,
+            Intent i) {
 
-        super.onReceive(context, intent);
+        super.onReceive(c, i);
 
-        String action = intent.getAction();
+        String a = i.getAction();
 
-        if (ACTION_UPDATE.equals(action)
-                || Intent.ACTION_TIME_CHANGED.equals(action)
-                || Intent.ACTION_TIMEZONE_CHANGED.equals(action)
-                || Intent.ACTION_DATE_CHANGED.equals(action)) {
+        if (ACTION_UPDATE.equals(a)
+                || Intent.ACTION_TIME_CHANGED.equals(a)
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(a)
+                || Intent.ACTION_DATE_CHANGED.equals(a)) {
 
-            refreshAll(context);
+            refreshAll(c);
         }
     }
 
-    public static void refreshAll(Context context) {
+    public static void refreshAll(Context c) {
 
-        AppWidgetManager manager =
+        AppWidgetManager m =
                 AppWidgetManager.getInstance(
-                        context.getApplicationContext()
+                        c.getApplicationContext()
                 );
 
-        ComponentName componentName =
+        ComponentName cn =
                 new ComponentName(
-                        context,
+                        c,
                         ScheduleWidgetProvider.class
                 );
 
-        int[] ids =
-                manager.getAppWidgetIds(componentName);
-
-        for (int id : ids) {
-            update(context, manager, id);
+        for (int id : m.getAppWidgetIds(cn)) {
+            update(c, m, id);
         }
     }
 
-    private static int minutes(String value) {
+    private static int minutes(String s) {
 
         try {
 
-            value = value
-                    .trim()
-                    .toUpperCase(Locale.US);
+            s = s.trim().toUpperCase(Locale.US);
 
-            boolean pm = value.contains("PM");
-            boolean am = value.contains("AM");
+            boolean pm = s.contains("PM");
+            boolean am = s.contains("AM");
 
-            value = value
-                    .replace("AM", "")
+            s = s.replace("AM", "")
                     .replace("PM", "")
                     .trim();
 
-            String[] parts = value.split(":");
+            String[] p = s.split(":");
 
-            int hour =
-                    Integer.parseInt(parts[0].trim());
+            int h = Integer.parseInt(
+                    p[0].trim()
+            );
 
-            int minute =
-                    Integer.parseInt(
-                            parts[1]
-                                    .trim()
-                                    .split("\\s+")[0]
-                    );
+            int min = Integer.parseInt(
+                    p[1].trim()
+                            .split("\\s+")[0]
+            );
 
-            if (pm && hour < 12) {
-                hour += 12;
+            if (pm && h < 12) {
+                h += 12;
             }
 
-            if (am && hour == 12) {
-                hour = 0;
+            if (am && h == 12) {
+                h = 0;
             }
 
-            return hour * 60 + minute;
+            return h * 60 + min;
 
         } catch (Exception e) {
 
@@ -122,35 +109,33 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static JSONObject next(Context context) {
+    private static JSONObject next(Context c) {
 
         try {
 
-            JSONArray classes =
+            JSONArray a =
                     new JSONArray(
-                            context
-                                    .getSharedPreferences(
-                                            "schedule",
-                                            0
-                                    )
-                                    .getString(
-                                            "classes",
-                                            "[]"
-                                    )
+                            c.getSharedPreferences(
+                                    "schedule",
+                                    0
+                            ).getString(
+                                    "classes",
+                                    "[]"
+                            )
                     );
 
             Calendar now =
                     Calendar.getInstance();
 
-            int dayOfWeek =
+            int dow =
                     now.get(Calendar.DAY_OF_WEEK);
 
             int today =
-                    dayOfWeek == Calendar.SUNDAY
+                    dow == Calendar.SUNDAY
                             ? 6
-                            : dayOfWeek - Calendar.MONDAY;
+                            : dow - Calendar.MONDAY;
 
-            int nowMinutes =
+            int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
                             + now.get(Calendar.MINUTE);
 
@@ -159,41 +144,33 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             int bestScore =
                     Integer.MAX_VALUE;
 
-            for (int i = 0;
-                 i < classes.length();
-                 i++) {
+            for (int i = 0; i < a.length(); i++) {
 
-                JSONObject object =
-                        classes.getJSONObject(i);
+                JSONObject o =
+                        a.getJSONObject(i);
 
-                int day =
-                        object.optInt(
-                                "day",
-                                -1
-                        );
+                int d =
+                        o.optInt("day", -1);
 
-                int start =
+                int t =
                         minutes(
-                                object.optString(
+                                o.optString(
                                         "start",
                                         ""
                                 )
                         );
 
-                if (day < 0
-                        || day > 6
-                        || start == 9999) {
-
+                if (d < 0 || d > 6 || t == 9999) {
                     continue;
                 }
 
                 int daysAhead =
-                        (day - today + 7) % 7;
+                        (d - today + 7) % 7;
 
                 int score =
                         daysAhead * 1440
-                                + start
-                                - nowMinutes;
+                                + t
+                                - nowMin;
 
                 if (score <= 0) {
                     score += 7 * 1440;
@@ -202,7 +179,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 if (score < bestScore) {
 
                     bestScore = score;
-                    best = object;
+                    best = o;
                 }
             }
 
@@ -215,349 +192,353 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
     }
 
     static void update(
-            Context context,
-            AppWidgetManager manager,
-            int widgetId) {
+            Context c,
+            AppWidgetManager m,
+            int id) {
 
-        RemoteViews views =
+        RemoteViews v =
                 new RemoteViews(
-                        context.getPackageName(),
+                        c.getPackageName(),
                         R.layout.widget
                 );
 
-        JSONObject object =
-                next(context);
+        JSONObject o = next(c);
 
-        if (object == null) {
+        if (o == null) {
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_label,
                     "NEXT CLASS"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_subject,
                     "No classes scheduled"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_time,
                     "Open app to add your schedule"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_room,
                     ""
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_teacher,
                     ""
             );
 
         } else {
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_label,
                     "NEXT CLASS"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_subject,
-                    object.optString(
+                    o.optString(
                             "subject",
                             "Class"
                     )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_time,
-                    object.optString(
+                    o.optString(
                             "start",
                             ""
                     )
                             + " - "
-                            + object.optString(
+                            + o.optString(
                                     "end",
                                     ""
                             )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_room,
-                    object.optString(
+                    o.optString(
                             "room",
                             ""
                     )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_teacher,
-                    object.optString(
+                    o.optString(
                             "teacher",
                             ""
                     )
             );
         }
 
-        android.content.SharedPreferences preferences =
-                context.getSharedPreferences(
+        SharedPreferences p =
+                c.getSharedPreferences(
                         "widget_settings",
                         0
                 );
 
-        int backgroundColor =
-                preferences.getInt(
+        int bg =
+                p.getInt(
                         "bgColor",
-                        android.graphics.Color.rgb(
-                                11,
-                                11,
-                                11
-                        )
+                        Color.rgb(11, 11, 11)
                 );
 
-        int textColor =
-                preferences.getInt(
+        int text =
+                p.getInt(
                         "textColor",
-                        android.graphics.Color.WHITE
+                        Color.WHITE
                 );
 
         int radius =
-                preferences.getInt(
+                p.getInt(
                         "radius",
                         18
                 );
 
-        String imagePath =
-                preferences.getString(
+        String uri =
+                p.getString(
                         "bgUri",
                         ""
                 );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_label,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_subject,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_time,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_room,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_teacher,
-                textColor
+                text
         );
 
-        int backgroundResource;
+        int bgRes;
 
         if (radius <= 0) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_square;
 
         } else if (radius <= 12) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_slight;
 
         } else if (radius <= 24) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_round;
 
         } else {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_veryround;
         }
 
-        views.setInt(
+        v.setInt(
                 R.id.widget_root,
                 "setBackgroundResource",
-                backgroundResource
+                bgRes
         );
 
-        views.setViewVisibility(
-                R.id.widget_bg_image,
-                View.GONE
+        v.setInt(
+                R.id.widget_root,
+                "setBackgroundColor",
+                bg
         );
 
-        if (imagePath != null
-                && !imagePath.isEmpty()) {
+        /*
+         * BACKGROUND IMAGE
+         *
+         * Supports both:
+         *
+         * 1. content://... gallery URIs
+         * 2. /data/user/0/... cropped files
+         */
+        if (uri == null || uri.trim().isEmpty()) {
 
-            Bitmap bitmap =
-                    loadBitmap(
-                            context,
-                            imagePath
-                    );
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    View.GONE
+            );
+
+        } else {
+
+            Bitmap bitmap = null;
+
+            try {
+
+                if (uri.startsWith("content://")
+                        || uri.startsWith("file://")) {
+
+                    Uri imageUri =
+                            Uri.parse(uri);
+
+                    InputStream in =
+                            c.getContentResolver()
+                                    .openInputStream(
+                                            imageUri
+                                    );
+
+                    if (in != null) {
+
+                        bitmap =
+                                BitmapFactory.decodeStream(in);
+
+                        in.close();
+                    }
+
+                } else {
+
+                    File file =
+                            new File(uri);
+
+                    if (file.exists()
+                            && file.isFile()) {
+
+                        bitmap =
+                                BitmapFactory.decodeFile(
+                                        file.getAbsolutePath()
+                                );
+                    }
+                }
+
+            } catch (Exception ignored) {
+
+                bitmap = null;
+            }
 
             if (bitmap != null) {
 
-                Bitmap roundedBitmap =
-                        createRoundedBitmap(
-                                bitmap,
-                                radius,
-                                context
-                        );
+                try {
 
-                if (roundedBitmap != null) {
+                    /*
+                     * Scale the image down so the
+                     * RemoteViews bitmap is not too large.
+                     */
+                    int targetSize = 800;
 
-                    views.setImageViewBitmap(
+                    int width =
+                            bitmap.getWidth();
+
+                    int height =
+                            bitmap.getHeight();
+
+                    float scale =
+                            Math.min(
+                                    1f,
+                                    Math.min(
+                                            (float) targetSize / width,
+                                            (float) targetSize / height
+                                    )
+                            );
+
+                    Bitmap scaled = bitmap;
+
+                    if (scale < 1f) {
+
+                        int newWidth =
+                                Math.max(
+                                        1,
+                                        Math.round(
+                                                width * scale
+                                        )
+                                );
+
+                        int newHeight =
+                                Math.max(
+                                        1,
+                                        Math.round(
+                                                height * scale
+                                        )
+                                );
+
+                        scaled =
+                                Bitmap.createScaledBitmap(
+                                        bitmap,
+                                        newWidth,
+                                        newHeight,
+                                        true
+                                );
+
+                        if (scaled != bitmap) {
+                            bitmap.recycle();
+                        }
+                    }
+
+                    /*
+                     * Put the image into the ImageView.
+                     */
+                    v.setImageViewBitmap(
                             R.id.widget_bg_image,
-                            roundedBitmap
+                            scaled
                     );
 
-                    views.setViewVisibility(
+                    v.setViewVisibility(
                             R.id.widget_bg_image,
                             View.VISIBLE
                     );
+
+                } catch (Exception e) {
+
+                    v.setViewVisibility(
+                            R.id.widget_bg_image,
+                            View.GONE
+                    );
                 }
 
-                if (!bitmap.isRecycled()) {
-                    bitmap.recycle();
-                }
+            } else {
+
+                v.setViewVisibility(
+                        R.id.widget_bg_image,
+                        View.GONE
+                );
             }
         }
 
-        Intent launchIntent =
+        Intent x =
                 new Intent(
-                        context,
+                        c,
                         MainActivity.class
                 );
 
-        PendingIntent pendingIntent =
+        PendingIntent pnd =
                 PendingIntent.getActivity(
-                        context,
+                        c,
                         0,
-                        launchIntent,
+                        x,
                         PendingIntent.FLAG_IMMUTABLE
                                 | PendingIntent.FLAG_UPDATE_CURRENT
                 );
 
-        views.setOnClickPendingIntent(
+        v.setOnClickPendingIntent(
                 R.id.widget_root,
-                pendingIntent
+                pnd
         );
 
-        manager.updateAppWidget(
-                widgetId,
-                views
+        m.updateAppWidget(
+                id,
+                v
         );
-    }
-
-    private static Bitmap loadBitmap(
-            Context context,
-            String path) {
-
-        try {
-
-            if (path.startsWith("/")) {
-
-                return BitmapFactory.decodeFile(
-                        path
-                );
-            }
-
-            Uri uri =
-                    Uri.parse(path);
-
-            InputStream inputStream =
-                    context
-                            .getContentResolver()
-                            .openInputStream(uri);
-
-            if (inputStream == null) {
-                return null;
-            }
-
-            Bitmap bitmap =
-                    BitmapFactory.decodeStream(
-                            inputStream
-                    );
-
-            inputStream.close();
-
-            return bitmap;
-
-        } catch (Exception e) {
-
-            return null;
-        }
-    }
-
-    private static Bitmap createRoundedBitmap(
-            Bitmap source,
-            int radiusDp,
-            Context context) {
-
-        try {
-
-            float density =
-                    context
-                            .getResources()
-                            .getDisplayMetrics()
-                            .density;
-
-            float radius =
-                    radiusDp * density;
-
-            Bitmap output =
-                    Bitmap.createBitmap(
-                            source.getWidth(),
-                            source.getHeight(),
-                            Bitmap.Config.ARGB_8888
-                    );
-
-            Canvas canvas =
-                    new Canvas(output);
-
-            Path path =
-                    new Path();
-
-            RectF rect =
-                    new RectF(
-                            0,
-                            0,
-                            source.getWidth(),
-                            source.getHeight()
-                    );
-
-            path.addRoundRect(
-                    rect,
-                    radius,
-                    radius,
-                    Path.Direction.CW
-            );
-
-            canvas.save();
-
-            canvas.clipPath(path);
-
-            canvas.drawBitmap(
-                    source,
-                    0,
-                    0,
-                    null
-            );
-
-            canvas.restore();
-
-            return output;
-
-        } catch (Exception e) {
-
-            return source;
-        }
     }
 }
+```
