@@ -321,11 +321,14 @@ public class CustomizeActivity extends Activity {
 
             try {
 
-                InputStream in =
-                        getContentResolver()
-                                .openInputStream(
-                                        Uri.parse(bgUri)
-                                );
+                InputStream in;
+
+if (bgUri.startsWith("content://")) {
+    in = getContentResolver()
+            .openInputStream(Uri.parse(bgUri));
+} else {
+    in = new java.io.FileInputStream(bgUri);
+}
 
                 Bitmap b =
                         BitmapFactory.decodeStream(in);
