@@ -36,7 +36,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
         <Button android:id="@+id/clearImageButton" android:text="Remove Background Image"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
-        <Button android:id="@+id/saveButton" android:text="SAVE & UPDATE WIDGET"
+        <Button android:id="@+id/saveButton" android:text="SAVE &amp; UPDATE WIDGET"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"/>
     </LinearLayout>
 </ScrollView>
