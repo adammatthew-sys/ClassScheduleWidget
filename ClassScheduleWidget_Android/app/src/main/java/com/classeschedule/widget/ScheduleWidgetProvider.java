@@ -104,45 +104,49 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
     v.setViewVisibility(R.id.widget_bg_image, android.view.View.GONE);
 } else {
     try {
-        InputStream in = c.getContentResolver()
+
+    InputStream in;
+
+    if (uri.startsWith("content://")) {
+        in = c.getContentResolver()
                 .openInputStream(Uri.parse(uri));
+    } else {
+        in = new java.io.FileInputStream(uri);
+    }
 
-        Bitmap original = BitmapFactory.decodeStream(in);
+    Bitmap original = BitmapFactory.decodeStream(in);
 
-        if (in != null) {
-            in.close();
-        }
+    if (in != null) {
+        in.close();
+    }
 
-        if (original != null) {
-            int targetSize = 500;
+    if (original != null) {
 
-            float scale = Math.min(
-                    (float) targetSize / original.getWidth(),
-                    (float) targetSize / original.getHeight()
-            );
+        v.setImageViewBitmap(
+                R.id.widget_bg_image,
+                original
+        );
 
-            Bitmap scaled = Bitmap.createScaledBitmap(
-                    original,
-                    Math.max(1, (int)(original.getWidth() * scale)),
-                    Math.max(1, (int)(original.getHeight() * scale)),
-                    true
-            );
+        v.setViewVisibility(
+                R.id.widget_bg_image,
+                android.view.View.VISIBLE
+        );
 
-            v.setImageViewBitmap(R.id.widget_bg_image, scaled);
-            v.setViewVisibility(
-                    R.id.widget_bg_image,
-                    android.view.View.VISIBLE
-            );
+    } else {
 
-            if (scaled != original) {
-                original.recycle();
-            }
-        } else {
-            v.setViewVisibility(
-                    R.id.widget_bg_image,
-                    android.view.View.GONE
-            );
-        }
+        v.setViewVisibility(
+                R.id.widget_bg_image,
+                android.view.View.GONE
+        );
+    }
+
+} catch (Exception e) {
+
+    v.setViewVisibility(
+            R.id.widget_bg_image,
+            android.view.View.GONE
+    );
+}
 
     } catch (Exception e) {
         v.setViewVisibility(
