@@ -19,7 +19,7 @@ public class CustomizeActivity extends Activity {
     private static final String RADIUS = "radius";
     private static final String BG_URI = "bgUri";
 
-    private LinearLayout preview;
+    private FrameLayout preview;
     private TextView pLabel, pSubject, pTime, pRoom, pTeacher;
     private int bgColor, textColor, radius;
     private String bgUri = "";
