@@ -100,19 +100,57 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 : R.drawable.widget_bg_veryround;
         v.setInt(R.id.widget_root,"setBackgroundResource",bgRes);
         v.setInt(R.id.widget_root,"setBackgroundColor",bg);
-        if(uri.isEmpty()){
-            v.setViewVisibility(R.id.widget_bg_image,android.view.View.GONE);
-        } else {
-            try{
-                InputStream in=c.getContentResolver().openInputStream(Uri.parse(uri));
-                Bitmap b=BitmapFactory.decodeStream(in);
-                if(in!=null)in.close();
-                if(b!=null){
-                    v.setImageViewBitmap(R.id.widget_bg_image,b);
-                    v.setViewVisibility(R.id.widget_bg_image,android.view.View.VISIBLE);
-                } else v.setViewVisibility(R.id.widget_bg_image,android.view.View.GONE);
-            }catch(Exception e){v.setViewVisibility(R.id.widget_bg_image,android.view.View.GONE);}
+        if (uri.isEmpty()) {
+    v.setViewVisibility(R.id.widget_bg_image, android.view.View.GONE);
+} else {
+    try {
+        InputStream in = c.getContentResolver()
+                .openInputStream(Uri.parse(uri));
+
+        Bitmap original = BitmapFactory.decodeStream(in);
+
+        if (in != null) {
+            in.close();
         }
+
+        if (original != null) {
+            int targetSize = 500;
+
+            float scale = Math.min(
+                    (float) targetSize / original.getWidth(),
+                    (float) targetSize / original.getHeight()
+            );
+
+            Bitmap scaled = Bitmap.createScaledBitmap(
+                    original,
+                    Math.max(1, (int)(original.getWidth() * scale)),
+                    Math.max(1, (int)(original.getHeight() * scale)),
+                    true
+            );
+
+            v.setImageViewBitmap(R.id.widget_bg_image, scaled);
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    android.view.View.VISIBLE
+            );
+
+            if (scaled != original) {
+                original.recycle();
+            }
+        } else {
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    android.view.View.GONE
+            );
+        }
+
+    } catch (Exception e) {
+        v.setViewVisibility(
+                R.id.widget_bg_image,
+                android.view.View.GONE
+        );
+    }
+}
 
         Intent x=new Intent(c,MainActivity.class);
         PendingIntent pnd=PendingIntent.getActivity(c,0,x,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
