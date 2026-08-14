@@ -1,11 +1,9 @@
-```java
 package com.classeschedule.widget;
 
 import android.app.*;
 import android.appwidget.*;
 import android.content.*;
 import android.graphics.*;
-import android.graphics.drawable.*;
 import android.net.Uri;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -19,526 +17,492 @@ import org.json.JSONObject;
 
 public class ScheduleWidgetProvider extends AppWidgetProvider {
 
-    public static final String ACTION_UPDATE =
-            "com.classeschedule.widget.UPDATE";
+```
+public static final String ACTION_UPDATE =
+        "com.classeschedule.widget.UPDATE";
 
-    @Override
-    public void onUpdate(
-            Context c,
-            AppWidgetManager m,
-            int[] ids) {
-
-        for (int id : ids) {
-            update(c, m, id);
-        }
+@Override
+public void onUpdate(Context c, AppWidgetManager m, int[] ids) {
+    for (int id : ids) {
+        update(c, m, id);
     }
+}
 
-    @Override
-    public void onReceive(
-            Context c,
-            Intent i) {
+@Override
+public void onReceive(Context c, Intent i) {
+    super.onReceive(c, i);
 
-        super.onReceive(c, i);
+    String a = i.getAction();
 
-        String a = i.getAction();
+    if (ACTION_UPDATE.equals(a)
+            || Intent.ACTION_TIME_CHANGED.equals(a)
+            || Intent.ACTION_TIMEZONE_CHANGED.equals(a)
+            || Intent.ACTION_DATE_CHANGED.equals(a)) {
 
-        if (ACTION_UPDATE.equals(a)
-                || Intent.ACTION_TIME_CHANGED.equals(a)
-                || Intent.ACTION_TIMEZONE_CHANGED.equals(a)
-                || Intent.ACTION_DATE_CHANGED.equals(a)) {
-
-            refreshAll(c);
-        }
+        refreshAll(c);
     }
+}
 
-    public static void refreshAll(Context c) {
+public static void refreshAll(Context c) {
+    AppWidgetManager m =
+            AppWidgetManager.getInstance(
+                    c.getApplicationContext()
+            );
 
-        AppWidgetManager m =
-                AppWidgetManager.getInstance(
-                        c.getApplicationContext()
+    ComponentName cn =
+            new ComponentName(
+                    c,
+                    ScheduleWidgetProvider.class
+            );
+
+    for (int id : m.getAppWidgetIds(cn)) {
+        update(c, m, id);
+    }
+}
+
+private static int minutes(String s) {
+    try {
+        s = s.trim().toUpperCase(Locale.US);
+
+        boolean pm = s.contains("PM");
+        boolean am = s.contains("AM");
+
+        s = s.replace("AM", "")
+                .replace("PM", "")
+                .trim();
+
+        String[] p = s.split(":");
+
+        int h = Integer.parseInt(p[0].trim());
+
+        int min = Integer.parseInt(
+                p[1].trim().split("\\s+")[0]
+        );
+
+        if (pm && h < 12) {
+            h += 12;
+        }
+
+        if (am && h == 12) {
+            h = 0;
+        }
+
+        return h * 60 + min;
+
+    } catch (Exception e) {
+        return 9999;
+    }
+}
+
+private static JSONObject next(Context c) {
+    try {
+        JSONArray a =
+                new JSONArray(
+                        c.getSharedPreferences(
+                                "schedule",
+                                0
+                        ).getString(
+                                "classes",
+                                "[]"
+                        )
                 );
 
-        ComponentName cn =
-                new ComponentName(
-                        c,
-                        ScheduleWidgetProvider.class
-                );
+        Calendar now = Calendar.getInstance();
 
-        for (int id : m.getAppWidgetIds(cn)) {
-            update(c, m, id);
-        }
-    }
+        int dow =
+                now.get(Calendar.DAY_OF_WEEK);
 
-    private static int minutes(String s) {
+        int today =
+                dow == Calendar.SUNDAY
+                        ? 6
+                        : dow - Calendar.MONDAY;
 
-        try {
+        int nowMin =
+                now.get(Calendar.HOUR_OF_DAY) * 60
+                        + now.get(Calendar.MINUTE);
 
-            s = s.trim().toUpperCase(Locale.US);
+        JSONObject best = null;
 
-            boolean pm = s.contains("PM");
-            boolean am = s.contains("AM");
+        int bestScore = Integer.MAX_VALUE;
 
-            s = s.replace("AM", "")
-                    .replace("PM", "")
-                    .trim();
+        for (int i = 0; i < a.length(); i++) {
 
-            String[] p = s.split(":");
+            JSONObject o =
+                    a.getJSONObject(i);
 
-            int h = Integer.parseInt(
-                    p[0].trim()
-            );
+            int d =
+                    o.optInt("day", -1);
 
-            int min = Integer.parseInt(
-                    p[1].trim()
-                            .split("\\s+")[0]
-            );
-
-            if (pm && h < 12) {
-                h += 12;
-            }
-
-            if (am && h == 12) {
-                h = 0;
-            }
-
-            return h * 60 + min;
-
-        } catch (Exception e) {
-
-            return 9999;
-        }
-    }
-
-    private static JSONObject next(Context c) {
-
-        try {
-
-            JSONArray a =
-                    new JSONArray(
-                            c.getSharedPreferences(
-                                    "schedule",
-                                    0
-                            ).getString(
-                                    "classes",
-                                    "[]"
-                            )
-                    );
-
-            Calendar now =
-                    Calendar.getInstance();
-
-            int dow =
-                    now.get(Calendar.DAY_OF_WEEK);
-
-            int today =
-                    dow == Calendar.SUNDAY
-                            ? 6
-                            : dow - Calendar.MONDAY;
-
-            int nowMin =
-                    now.get(Calendar.HOUR_OF_DAY) * 60
-                            + now.get(Calendar.MINUTE);
-
-            JSONObject best = null;
-
-            int bestScore =
-                    Integer.MAX_VALUE;
-
-            for (int i = 0; i < a.length(); i++) {
-
-                JSONObject o =
-                        a.getJSONObject(i);
-
-                int d =
-                        o.optInt("day", -1);
-
-                int t =
-                        minutes(
-                                o.optString(
-                                        "start",
-                                        ""
-                                )
-                        );
-
-                if (d < 0 || d > 6 || t == 9999) {
-                    continue;
-                }
-
-                int daysAhead =
-                        (d - today + 7) % 7;
-
-                int score =
-                        daysAhead * 1440
-                                + t
-                                - nowMin;
-
-                if (score <= 0) {
-                    score += 7 * 1440;
-                }
-
-                if (score < bestScore) {
-
-                    bestScore = score;
-                    best = o;
-                }
-            }
-
-            return best;
-
-        } catch (Exception e) {
-
-            return null;
-        }
-    }
-
-    static void update(
-            Context c,
-            AppWidgetManager m,
-            int id) {
-
-        RemoteViews v =
-                new RemoteViews(
-                        c.getPackageName(),
-                        R.layout.widget
-                );
-
-        JSONObject o = next(c);
-
-        if (o == null) {
-
-            v.setTextViewText(
-                    R.id.widget_label,
-                    "NEXT CLASS"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_subject,
-                    "No classes scheduled"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_time,
-                    "Open app to add your schedule"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_room,
-                    ""
-            );
-
-            v.setTextViewText(
-                    R.id.widget_teacher,
-                    ""
-            );
-
-        } else {
-
-            v.setTextViewText(
-                    R.id.widget_label,
-                    "NEXT CLASS"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_subject,
-                    o.optString(
-                            "subject",
-                            "Class"
-                    )
-            );
-
-            v.setTextViewText(
-                    R.id.widget_time,
-                    o.optString(
-                            "start",
-                            ""
-                    )
-                            + " - "
-                            + o.optString(
-                                    "end",
+            int t =
+                    minutes(
+                            o.optString(
+                                    "start",
                                     ""
                             )
-            );
+                    );
 
-            v.setTextViewText(
-                    R.id.widget_room,
-                    o.optString(
-                            "room",
-                            ""
-                    )
-            );
-
-            v.setTextViewText(
-                    R.id.widget_teacher,
-                    o.optString(
-                            "teacher",
-                            ""
-                    )
-            );
-        }
-
-        SharedPreferences p =
-                c.getSharedPreferences(
-                        "widget_settings",
-                        0
-                );
-
-        int bg =
-                p.getInt(
-                        "bgColor",
-                        Color.rgb(11, 11, 11)
-                );
-
-        int text =
-                p.getInt(
-                        "textColor",
-                        Color.WHITE
-                );
-
-        int radius =
-                p.getInt(
-                        "radius",
-                        18
-                );
-
-        String uri =
-                p.getString(
-                        "bgUri",
-                        ""
-                );
-
-        v.setTextColor(
-                R.id.widget_label,
-                text
-        );
-
-        v.setTextColor(
-                R.id.widget_subject,
-                text
-        );
-
-        v.setTextColor(
-                R.id.widget_time,
-                text
-        );
-
-        v.setTextColor(
-                R.id.widget_room,
-                text
-        );
-
-        v.setTextColor(
-                R.id.widget_teacher,
-                text
-        );
-
-        int bgRes;
-
-        if (radius <= 0) {
-
-            bgRes =
-                    R.drawable.widget_bg_square;
-
-        } else if (radius <= 12) {
-
-            bgRes =
-                    R.drawable.widget_bg_slight;
-
-        } else if (radius <= 24) {
-
-            bgRes =
-                    R.drawable.widget_bg_round;
-
-        } else {
-
-            bgRes =
-                    R.drawable.widget_bg_veryround;
-        }
-
-        v.setInt(
-                R.id.widget_root,
-                "setBackgroundResource",
-                bgRes
-        );
-
-        v.setInt(
-                R.id.widget_root,
-                "setBackgroundColor",
-                bg
-        );
-
-        /*
-         * BACKGROUND IMAGE
-         *
-         * Supports both:
-         *
-         * 1. content://... gallery URIs
-         * 2. /data/user/0/... cropped files
-         */
-        if (uri == null || uri.trim().isEmpty()) {
-
-            v.setViewVisibility(
-                    R.id.widget_bg_image,
-                    View.GONE
-            );
-
-        } else {
-
-            Bitmap bitmap = null;
-
-            try {
-
-                if (uri.startsWith("content://")
-                        || uri.startsWith("file://")) {
-
-                    Uri imageUri =
-                            Uri.parse(uri);
-
-                    InputStream in =
-                            c.getContentResolver()
-                                    .openInputStream(
-                                            imageUri
-                                    );
-
-                    if (in != null) {
-
-                        bitmap =
-                                BitmapFactory.decodeStream(in);
-
-                        in.close();
-                    }
-
-                } else {
-
-                    File file =
-                            new File(uri);
-
-                    if (file.exists()
-                            && file.isFile()) {
-
-                        bitmap =
-                                BitmapFactory.decodeFile(
-                                        file.getAbsolutePath()
-                                );
-                    }
-                }
-
-            } catch (Exception ignored) {
-
-                bitmap = null;
+            if (d < 0 || d > 6 || t == 9999) {
+                continue;
             }
 
-            if (bitmap != null) {
+            int daysAhead =
+                    (d - today + 7) % 7;
 
-                try {
+            int score =
+                    daysAhead * 1440
+                            + t
+                            - nowMin;
 
-                    /*
-                     * Scale the image down so the
-                     * RemoteViews bitmap is not too large.
-                     */
-                    int targetSize = 800;
+            if (score <= 0) {
+                score += 7 * 1440;
+            }
 
-                    int width =
-                            bitmap.getWidth();
+            if (score < bestScore) {
+                bestScore = score;
+                best = o;
+            }
+        }
 
-                    int height =
-                            bitmap.getHeight();
+        return best;
 
-                    float scale =
-                            Math.min(
-                                    1f,
-                                    Math.min(
-                                            (float) targetSize / width,
-                                            (float) targetSize / height
-                                    )
-                            );
+    } catch (Exception e) {
+        return null;
+    }
+}
 
-                    Bitmap scaled = bitmap;
+static void update(
+        Context c,
+        AppWidgetManager m,
+        int id) {
 
-                    if (scale < 1f) {
+    RemoteViews v =
+            new RemoteViews(
+                    c.getPackageName(),
+                    R.layout.widget
+            );
 
-                        int newWidth =
-                                Math.max(
-                                        1,
-                                        Math.round(
-                                                width * scale
-                                        )
+    JSONObject o = next(c);
+
+    if (o == null) {
+
+        v.setTextViewText(
+                R.id.widget_label,
+                "NEXT CLASS"
+        );
+
+        v.setTextViewText(
+                R.id.widget_subject,
+                "No classes scheduled"
+        );
+
+        v.setTextViewText(
+                R.id.widget_time,
+                "Open app to add your schedule"
+        );
+
+        v.setTextViewText(
+                R.id.widget_room,
+                ""
+        );
+
+        v.setTextViewText(
+                R.id.widget_teacher,
+                ""
+        );
+
+    } else {
+
+        v.setTextViewText(
+                R.id.widget_label,
+                "NEXT CLASS"
+        );
+
+        v.setTextViewText(
+                R.id.widget_subject,
+                o.optString(
+                        "subject",
+                        "Class"
+                )
+        );
+
+        v.setTextViewText(
+                R.id.widget_time,
+                o.optString(
+                        "start",
+                        ""
+                )
+                        + " - "
+                        + o.optString(
+                                "end",
+                                ""
+                        )
+        );
+
+        v.setTextViewText(
+                R.id.widget_room,
+                o.optString(
+                        "room",
+                        ""
+                )
+        );
+
+        v.setTextViewText(
+                R.id.widget_teacher,
+                o.optString(
+                        "teacher",
+                        ""
+                )
+        );
+    }
+
+    SharedPreferences p =
+            c.getSharedPreferences(
+                    "widget_settings",
+                    0
+            );
+
+    int bg =
+            p.getInt(
+                    "bgColor",
+                    Color.rgb(11, 11, 11)
+            );
+
+    int text =
+            p.getInt(
+                    "textColor",
+                    Color.WHITE
+            );
+
+    int radius =
+            p.getInt(
+                    "radius",
+                    18
+            );
+
+    String uri =
+            p.getString(
+                    "bgUri",
+                    ""
+            );
+
+    v.setTextColor(
+            R.id.widget_label,
+            text
+    );
+
+    v.setTextColor(
+            R.id.widget_subject,
+            text
+    );
+
+    v.setTextColor(
+            R.id.widget_time,
+            text
+    );
+
+    v.setTextColor(
+            R.id.widget_room,
+            text
+    );
+
+    v.setTextColor(
+            R.id.widget_teacher,
+            text
+    );
+
+    int bgRes;
+
+    if (radius <= 0) {
+        bgRes = R.drawable.widget_bg_square;
+
+    } else if (radius <= 12) {
+        bgRes = R.drawable.widget_bg_slight;
+
+    } else if (radius <= 24) {
+        bgRes = R.drawable.widget_bg_round;
+
+    } else {
+        bgRes = R.drawable.widget_bg_veryround;
+    }
+
+    v.setInt(
+            R.id.widget_root,
+            "setBackgroundResource",
+            bgRes
+    );
+
+    v.setInt(
+            R.id.widget_root,
+            "setBackgroundColor",
+            bg
+    );
+
+    /*
+     * Background image.
+     *
+     * Supports:
+     * - content:// gallery images
+     * - file:// images
+     * - normal local file paths
+     */
+    if (uri == null || uri.trim().isEmpty()) {
+
+        v.setViewVisibility(
+                R.id.widget_bg_image,
+                View.GONE
+        );
+
+    } else {
+
+        Bitmap bitmap = null;
+
+        try {
+
+            if (uri.startsWith("content://")
+                    || uri.startsWith("file://")) {
+
+                Uri imageUri =
+                        Uri.parse(uri);
+
+                InputStream in =
+                        c.getContentResolver()
+                                .openInputStream(
+                                        imageUri
                                 );
 
-                        int newHeight =
-                                Math.max(
-                                        1,
-                                        Math.round(
-                                                height * scale
-                                        )
-                                );
+                if (in != null) {
 
-                        scaled =
-                                Bitmap.createScaledBitmap(
-                                        bitmap,
-                                        newWidth,
-                                        newHeight,
-                                        true
-                                );
+                    bitmap =
+                            BitmapFactory.decodeStream(in);
 
-                        if (scaled != bitmap) {
-                            bitmap.recycle();
-                        }
-                    }
-
-                    /*
-                     * Put the image into the ImageView.
-                     */
-                    v.setImageViewBitmap(
-                            R.id.widget_bg_image,
-                            scaled
-                    );
-
-                    v.setViewVisibility(
-                            R.id.widget_bg_image,
-                            View.VISIBLE
-                    );
-
-                } catch (Exception e) {
-
-                    v.setViewVisibility(
-                            R.id.widget_bg_image,
-                            View.GONE
-                    );
+                    in.close();
                 }
 
             } else {
+
+                File file =
+                        new File(uri);
+
+                if (file.exists()
+                        && file.isFile()) {
+
+                    bitmap =
+                            BitmapFactory.decodeFile(
+                                    file.getAbsolutePath()
+                            );
+                }
+            }
+
+        } catch (Exception ignored) {
+            bitmap = null;
+        }
+
+        if (bitmap != null) {
+
+            try {
+
+                int targetSize = 800;
+
+                int width =
+                        bitmap.getWidth();
+
+                int height =
+                        bitmap.getHeight();
+
+                float scale =
+                        Math.min(
+                                1f,
+                                Math.min(
+                                        (float) targetSize / width,
+                                        (float) targetSize / height
+                                )
+                        );
+
+                Bitmap scaled = bitmap;
+
+                if (scale < 1f) {
+
+                    int newWidth =
+                            Math.max(
+                                    1,
+                                    Math.round(
+                                            width * scale
+                                    )
+                            );
+
+                    int newHeight =
+                            Math.max(
+                                    1,
+                                    Math.round(
+                                            height * scale
+                                    )
+                            );
+
+                    scaled =
+                            Bitmap.createScaledBitmap(
+                                    bitmap,
+                                    newWidth,
+                                    newHeight,
+                                    true
+                            );
+
+                    if (scaled != bitmap) {
+                        bitmap.recycle();
+                    }
+                }
+
+                v.setImageViewBitmap(
+                        R.id.widget_bg_image,
+                        scaled
+                );
+
+                v.setViewVisibility(
+                        R.id.widget_bg_image,
+                        View.VISIBLE
+                );
+
+            } catch (Exception e) {
 
                 v.setViewVisibility(
                         R.id.widget_bg_image,
                         View.GONE
                 );
             }
+
+        } else {
+
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    View.GONE
+            );
         }
-
-        Intent x =
-                new Intent(
-                        c,
-                        MainActivity.class
-                );
-
-        PendingIntent pnd =
-                PendingIntent.getActivity(
-                        c,
-                        0,
-                        x,
-                        PendingIntent.FLAG_IMMUTABLE
-                                | PendingIntent.FLAG_UPDATE_CURRENT
-                );
-
-        v.setOnClickPendingIntent(
-                R.id.widget_root,
-                pnd
-        );
-
-        m.updateAppWidget(
-                id,
-                v
-        );
     }
+
+    Intent x =
+            new Intent(
+                    c,
+                    MainActivity.class
+            );
+
+    PendingIntent pnd =
+            PendingIntent.getActivity(
+                    c,
+                    0,
+                    x,
+                    PendingIntent.FLAG_IMMUTABLE
+                            | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+    v.setOnClickPendingIntent(
+            R.id.widget_root,
+            pnd
+    );
+
+    m.updateAppWidget(
+            id,
+            v
+    );
 }
 ```
+
+}
