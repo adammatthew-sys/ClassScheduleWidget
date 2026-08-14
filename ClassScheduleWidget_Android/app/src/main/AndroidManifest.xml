@@ -5,6 +5,7 @@
         android:icon="@drawable/app_icon">
 
         <activity android:name=".CustomizeActivity" android:exported="false"/>
+        <activity android:name=".CropActivity" android:exported="false"/>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
