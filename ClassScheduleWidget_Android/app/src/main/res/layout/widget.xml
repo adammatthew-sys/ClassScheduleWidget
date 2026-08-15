@@ -19,6 +19,17 @@
         android:padding="10dp">
 
         <TextView
+    android:id="@+id/widget_date"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="THURSDAY • AUG 15"
+    android:textColor="#AAAAAA"
+    android:textSize="9sp"
+    android:textStyle="bold"
+    android:maxLines="1"
+    android:ellipsize="end" />
+        
+        <TextView
             android:id="@+id/widget_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
