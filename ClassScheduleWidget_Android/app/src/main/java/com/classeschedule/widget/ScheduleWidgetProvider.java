@@ -1,3 +1,4 @@
+```java
 package com.classeschedule.widget;
 
 import android.app.*;
@@ -106,6 +107,83 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
             return 9999;
         }
+    }
+
+    private static JSONObject currentClass(Context c) {
+
+        try {
+
+            JSONArray a =
+                    new JSONArray(
+                            c.getSharedPreferences(
+                                    "schedule",
+                                    0
+                            ).getString(
+                                    "classes",
+                                    "[]"
+                            )
+                    );
+
+            Calendar now =
+                    Calendar.getInstance();
+
+            int dow =
+                    now.get(Calendar.DAY_OF_WEEK);
+
+            int today =
+                    dow == Calendar.SUNDAY
+                            ? 6
+                            : dow - Calendar.MONDAY;
+
+            int nowMin =
+                    now.get(Calendar.HOUR_OF_DAY) * 60
+                            + now.get(Calendar.MINUTE);
+
+            for (int i = 0; i < a.length(); i++) {
+
+                JSONObject o =
+                        a.getJSONObject(i);
+
+                int d =
+                        o.optInt(
+                                "day",
+                                -1
+                        );
+
+                if (d != today) {
+                    continue;
+                }
+
+                int start =
+                        minutes(
+                                o.optString(
+                                        "start",
+                                        ""
+                                )
+                        );
+
+                int end =
+                        minutes(
+                                o.optString(
+                                        "end",
+                                        ""
+                                )
+                        );
+
+                if (start == 9999 || end == 9999) {
+                    continue;
+                }
+
+                if (nowMin >= start && nowMin < end) {
+                    return o;
+                }
+            }
+
+        } catch (Exception e) {
+            // Ignore invalid schedule data.
+        }
+
+        return null;
     }
 
     private static JSONObject next(Context c) {
@@ -226,9 +304,15 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         );
 
         /*
-         * NEXT CLASS
+         * CURRENT / NEXT CLASS
          */
-        JSONObject o = next(c);
+        JSONObject current =
+                currentClass(c);
+
+        JSONObject o =
+                current != null
+                        ? current
+                        : next(c);
 
         if (o == null) {
 
@@ -261,7 +345,9 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
             v.setTextViewText(
                     R.id.widget_label,
-                    "NEXT CLASS"
+                    current != null
+                            ? "CURRENT CLASS"
+                            : "NEXT CLASS"
             );
 
             v.setTextViewText(
@@ -564,3 +650,4 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         );
     }
 }
+```
