@@ -1,4 +1,3 @@
-```java
 package com.classeschedule.widget;
 
 import android.app.*;
@@ -650,4 +649,3 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         );
     }
 }
-```
