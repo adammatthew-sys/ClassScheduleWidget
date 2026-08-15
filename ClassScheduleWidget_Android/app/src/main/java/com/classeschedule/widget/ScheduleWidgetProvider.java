@@ -1,24 +1,14 @@
 package com.classeschedule.widget;
 
-import android.appwidget.AppWidgetManager;
-import android.app.PendingIntent;
-import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Color;
+import android.app.*;
+import android.appwidget.*;
+import android.content.*;
+import android.graphics.*;
 import android.net.Uri;
-import android.view.View;
 import android.widget.RemoteViews;
 
 import java.io.InputStream;
-import java.util.Calendar;
-import java.util.Locale;
+import java.util.*;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,92 +20,86 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(
-            Context context,
-            AppWidgetManager manager,
-            int[] appWidgetIds) {
+            Context c,
+            AppWidgetManager m,
+            int[] ids) {
 
-        for (int id : appWidgetIds) {
-            update(context, manager, id);
+        for (int id : ids) {
+            update(c, m, id);
         }
     }
 
     @Override
     public void onReceive(
-            Context context,
-            Intent intent) {
+            Context c,
+            Intent i) {
 
-        super.onReceive(context, intent);
+        super.onReceive(c, i);
 
-        String action = intent.getAction();
+        String a = i.getAction();
 
-        if (ACTION_UPDATE.equals(action)
-                || Intent.ACTION_TIME_CHANGED.equals(action)
-                || Intent.ACTION_TIMEZONE_CHANGED.equals(action)
-                || Intent.ACTION_DATE_CHANGED.equals(action)) {
+        if (ACTION_UPDATE.equals(a)
+                || Intent.ACTION_TIME_CHANGED.equals(a)
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(a)
+                || Intent.ACTION_DATE_CHANGED.equals(a)) {
 
-            refreshAll(context);
+            refreshAll(c);
         }
     }
 
-    public static void refreshAll(Context context) {
+    public static void refreshAll(Context c) {
 
-        Context c = context.getApplicationContext();
+        AppWidgetManager m =
+                AppWidgetManager.getInstance(
+                        c.getApplicationContext()
+                );
 
-        AppWidgetManager manager =
-                AppWidgetManager.getInstance(c);
-
-        ComponentName component =
+        ComponentName cn =
                 new ComponentName(
                         c,
                         ScheduleWidgetProvider.class
                 );
 
-        int[] ids =
-                manager.getAppWidgetIds(component);
-
-        for (int id : ids) {
-            update(c, manager, id);
+        for (int id : m.getAppWidgetIds(cn)) {
+            update(c, m, id);
         }
     }
 
-    private static int minutes(String value) {
+    private static int minutes(String s) {
 
         try {
 
-            String s =
-                    value.trim().toUpperCase(Locale.US);
+            s = s.trim().toUpperCase(Locale.US);
 
             boolean pm = s.contains("PM");
             boolean am = s.contains("AM");
 
-            s = s
-                    .replace("AM", "")
+            s = s.replace("AM", "")
                     .replace("PM", "")
                     .trim();
 
-            String[] parts = s.split(":");
+            String[] p = s.split(":");
 
-            int hour =
+            int h =
                     Integer.parseInt(
-                            parts[0].trim()
+                            p[0].trim()
                     );
 
-            int minute =
+            int min =
                     Integer.parseInt(
-                            parts[1]
-                                    .trim()
+                            p[1].trim()
                                     .split("\\s+")[0]
                     );
 
-            if (pm && hour < 12) {
-                hour += 12;
+            if (pm && h < 12) {
+                h += 12;
             }
 
-            if (am && hour == 12) {
-                hour = 0;
+            if (am && h == 12) {
+                h = 0;
             }
 
-            return hour * 60 + minute;
+            return h * 60 + min;
 
         } catch (Exception e) {
 
@@ -123,35 +107,33 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static JSONObject next(Context context) {
+    private static JSONObject next(Context c) {
 
         try {
 
-            JSONArray classes =
+            JSONArray a =
                     new JSONArray(
-                            context
-                                    .getSharedPreferences(
-                                            "schedule",
-                                            0
-                                    )
-                                    .getString(
-                                            "classes",
-                                            "[]"
-                                    )
+                            c.getSharedPreferences(
+                                    "schedule",
+                                    0
+                            ).getString(
+                                    "classes",
+                                    "[]"
+                            )
                     );
 
             Calendar now =
                     Calendar.getInstance();
 
-            int dayOfWeek =
+            int dow =
                     now.get(Calendar.DAY_OF_WEEK);
 
             int today =
-                    dayOfWeek == Calendar.SUNDAY
+                    dow == Calendar.SUNDAY
                             ? 6
-                            : dayOfWeek - Calendar.MONDAY;
+                            : dow - Calendar.MONDAY;
 
-            int nowMinutes =
+            int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
                             + now.get(Calendar.MINUTE);
 
@@ -160,39 +142,36 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             int bestScore =
                     Integer.MAX_VALUE;
 
-            for (int i = 0; i < classes.length(); i++) {
+            for (int i = 0; i < a.length(); i++) {
 
-                JSONObject item =
-                        classes.getJSONObject(i);
+                JSONObject o =
+                        a.getJSONObject(i);
 
-                int day =
-                        item.optInt(
+                int d =
+                        o.optInt(
                                 "day",
                                 -1
                         );
 
-                int start =
+                int t =
                         minutes(
-                                item.optString(
+                                o.optString(
                                         "start",
                                         ""
                                 )
                         );
 
-                if (day < 0
-                        || day > 6
-                        || start == 9999) {
-
+                if (d < 0 || d > 6 || t == 9999) {
                     continue;
                 }
 
                 int daysAhead =
-                        (day - today + 7) % 7;
+                        (d - today + 7) % 7;
 
                 int score =
                         daysAhead * 1440
-                                + start
-                                - nowMinutes;
+                                + t
+                                - nowMin;
 
                 if (score <= 0) {
                     score += 7 * 1440;
@@ -201,7 +180,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 if (score < bestScore) {
 
                     bestScore = score;
-                    best = item;
+                    best = o;
                 }
             }
 
@@ -213,422 +192,374 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static Bitmap makeRoundedBitmap(
-            Bitmap source,
-            float radius) {
-
-        if (source == null) {
-            return null;
-        }
-
-        Bitmap output =
-                Bitmap.createBitmap(
-                        source.getWidth(),
-                        source.getHeight(),
-                        Bitmap.Config.ARGB_8888
-                );
-
-        Canvas canvas =
-                new Canvas(output);
-
-        Paint paint =
-                new Paint(Paint.ANTI_ALIAS_FLAG);
-
-        RectF rect =
-                new RectF(
-                        0,
-                        0,
-                        source.getWidth(),
-                        source.getHeight()
-                );
-
-        canvas.drawRoundRect(
-                rect,
-                radius,
-                radius,
-                paint
-        );
-
-        paint.setXfermode(
-                new android.graphics.PorterDuffXfermode(
-                        android.graphics.PorterDuff.Mode.SRC_IN
-                )
-        );
-
-        canvas.drawBitmap(
-                source,
-                0,
-                0,
-                paint
-        );
-
-        paint.setXfermode(null);
-
-        return output;
-    }
-
-    private static Bitmap loadBackgroundImage(
-            Context context,
-            String uriString) {
-
-        if (uriString == null
-                || uriString.trim().isEmpty()) {
-
-            return null;
-        }
-
-        InputStream input = null;
-
-        try {
-
-            Uri uri;
-
-            if (uriString.startsWith("/")) {
-
-                uri =
-                        Uri.parse(
-                                "file://" + uriString
-                        );
-
-            } else {
-
-                uri =
-                        Uri.parse(uriString);
-            }
-
-            input =
-                    context
-                            .getContentResolver()
-                            .openInputStream(uri);
-
-            if (input == null) {
-                return null;
-            }
-
-            Bitmap original =
-                    BitmapFactory.decodeStream(input);
-
-            if (original == null) {
-                return null;
-            }
-
-            int targetSize = 800;
-
-            float scale =
-                    Math.min(
-                            (float) targetSize
-                                    / original.getWidth(),
-                            (float) targetSize
-                                    / original.getHeight()
-                    );
-
-            Bitmap scaled;
-
-            if (scale < 1f) {
-
-                scaled =
-                        Bitmap.createScaledBitmap(
-                                original,
-                                Math.max(
-                                        1,
-                                        (int)
-                                                (original.getWidth()
-                                                        * scale)
-                                ),
-                                Math.max(
-                                        1,
-                                        (int)
-                                                (original.getHeight()
-                                                        * scale)
-                                ),
-                                true
-                        );
-
-            } else {
-
-                scaled = original;
-            }
-
-            if (scaled != original) {
-                original.recycle();
-            }
-
-            return scaled;
-
-        } catch (Exception e) {
-
-            return null;
-
-        } finally {
-
-            if (input != null) {
-
-                try {
-                    input.close();
-                } catch (Exception ignored) {
-                }
-            }
-        }
-    }
-
     static void update(
-            Context context,
-            AppWidgetManager manager,
+            Context c,
+            AppWidgetManager m,
             int id) {
 
-        RemoteViews views =
+        RemoteViews v =
                 new RemoteViews(
-                        context.getPackageName(),
+                        c.getPackageName(),
                         R.layout.widget
                 );
 
-        JSONObject item =
-                next(context);
+        /*
+         * CURRENT DATE
+         */
+        SimpleDateFormat dateFormat =
+                new SimpleDateFormat(
+                        "EEEE • MMM d",
+                        Locale.getDefault()
+                );
 
-        if (item == null) {
+        String currentDate =
+                dateFormat.format(
+                        Calendar.getInstance().getTime()
+                );
 
-            views.setTextViewText(
+        v.setTextViewText(
+                R.id.widget_date,
+                currentDate.toUpperCase(
+                        Locale.getDefault()
+                )
+        );
+
+        /*
+         * NEXT CLASS
+         */
+        JSONObject o = next(c);
+
+        if (o == null) {
+
+            v.setTextViewText(
                     R.id.widget_label,
                     "NEXT CLASS"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_subject,
                     "No classes scheduled"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_time,
                     "Open app to add your schedule"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_room,
                     ""
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_teacher,
                     ""
             );
 
         } else {
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_label,
                     "NEXT CLASS"
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_subject,
-                    item.optString(
+                    o.optString(
                             "subject",
                             "Class"
                     )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_time,
-                    item.optString(
+                    o.optString(
                             "start",
                             ""
                     )
                             + " - "
-                            + item.optString(
+                            + o.optString(
                                     "end",
                                     ""
                             )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_room,
-                    item.optString(
+                    o.optString(
                             "room",
                             ""
                     )
             );
 
-            views.setTextViewText(
+            v.setTextViewText(
                     R.id.widget_teacher,
-                    item.optString(
+                    o.optString(
                             "teacher",
                             ""
                     )
             );
         }
 
-        android.content.SharedPreferences preferences =
-                context.getSharedPreferences(
+        /*
+         * WIDGET SETTINGS
+         */
+        SharedPreferences p =
+                c.getSharedPreferences(
                         "widget_settings",
                         0
                 );
 
-        int backgroundColor =
-                preferences.getInt(
+        int bg =
+                p.getInt(
                         "bgColor",
-                        Color.rgb(11, 11, 11)
+                        Color.rgb(
+                                11,
+                                11,
+                                11
+                        )
                 );
 
-        int textColor =
-                preferences.getInt(
+        int text =
+                p.getInt(
                         "textColor",
                         Color.WHITE
                 );
 
         int radius =
-                preferences.getInt(
+                p.getInt(
                         "radius",
                         18
                 );
 
-        String imageUri =
-                preferences.getString(
+        String uri =
+                p.getString(
                         "bgUri",
                         ""
                 );
 
-        views.setTextColor(
+        /*
+         * TEXT COLORS
+         */
+        v.setTextColor(
+                R.id.widget_date,
+                text
+        );
+
+        v.setTextColor(
                 R.id.widget_label,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_subject,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_time,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_room,
-                textColor
+                text
         );
 
-        views.setTextColor(
+        v.setTextColor(
                 R.id.widget_teacher,
-                textColor
+                text
         );
 
-        int backgroundResource;
+        /*
+         * CORNER STYLE
+         */
+        int bgRes;
 
         if (radius <= 0) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_square;
 
         } else if (radius <= 12) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_slight;
 
         } else if (radius <= 24) {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_round;
 
         } else {
 
-            backgroundResource =
+            bgRes =
                     R.drawable.widget_bg_veryround;
         }
 
-        views.setInt(
+        v.setInt(
                 R.id.widget_root,
                 "setBackgroundResource",
-                backgroundResource
+                bgRes
+        );
+
+        v.setInt(
+                R.id.widget_root,
+                "setBackgroundColor",
+                bg
         );
 
         /*
-         * Background image
+         * BACKGROUND IMAGE
          */
+        if (uri == null || uri.isEmpty()) {
 
-        Bitmap image =
-                loadBackgroundImage(
-                        context,
-                        imageUri
-                );
-
-        if (image != null) {
-
-            float density =
-                    context
-                            .getResources()
-                            .getDisplayMetrics()
-                            .density;
-
-            float imageRadius =
-                    radius * density;
-
-            Bitmap rounded =
-                    makeRoundedBitmap(
-                            image,
-                            imageRadius
-                    );
-
-            if (rounded != null) {
-
-                views.setImageViewBitmap(
-                        R.id.widget_bg_image,
-                        rounded
-                );
-
-                views.setViewVisibility(
-                        R.id.widget_bg_image,
-                        View.VISIBLE
-                );
-
-            } else {
-
-                views.setViewVisibility(
-                        R.id.widget_bg_image,
-                        View.GONE
-                );
-            }
-
-            if (rounded != image
-                    && rounded != null) {
-
-                image.recycle();
-            }
+            v.setViewVisibility(
+                    R.id.widget_bg_image,
+                    android.view.View.GONE
+            );
 
         } else {
 
-            views.setViewVisibility(
-                    R.id.widget_bg_image,
-                    View.GONE
-            );
+            try {
+
+                Uri imageUri;
+
+                if (uri.startsWith("/")) {
+
+                    imageUri =
+                            Uri.parse(
+                                    "file://" + uri
+                            );
+
+                } else {
+
+                    imageUri =
+                            Uri.parse(uri);
+                }
+
+                InputStream in =
+                        c.getContentResolver()
+                                .openInputStream(
+                                        imageUri
+                                );
+
+                if (in == null) {
+
+                    v.setViewVisibility(
+                            R.id.widget_bg_image,
+                            android.view.View.GONE
+                    );
+
+                } else {
+
+                    Bitmap original =
+                            BitmapFactory.decodeStream(in);
+
+                    in.close();
+
+                    if (original != null) {
+
+                        int targetSize = 500;
+
+                        float scale =
+                                Math.min(
+                                        (float) targetSize
+                                                / original.getWidth(),
+                                        (float) targetSize
+                                                / original.getHeight()
+                                );
+
+                        Bitmap scaled;
+
+                        if (scale < 1f) {
+
+                            scaled =
+                                    Bitmap.createScaledBitmap(
+                                            original,
+                                            Math.max(
+                                                    1,
+                                                    (int) (
+                                                            original.getWidth()
+                                                                    * scale
+                                                    )
+                                            ),
+                                            Math.max(
+                                                    1,
+                                                    (int) (
+                                                            original.getHeight()
+                                                                    * scale
+                                                    )
+                                            ),
+                                            true
+                                    );
+
+                        } else {
+
+                            scaled = original;
+                        }
+
+                        v.setImageViewBitmap(
+                                R.id.widget_bg_image,
+                                scaled
+                        );
+
+                        v.setViewVisibility(
+                                R.id.widget_bg_image,
+                                android.view.View.VISIBLE
+                        );
+
+                        if (scaled != original) {
+                            original.recycle();
+                        }
+
+                    } else {
+
+                        v.setViewVisibility(
+                                R.id.widget_bg_image,
+                                android.view.View.GONE
+                        );
+                    }
+                }
+
+            } catch (Exception e) {
+
+                v.setViewVisibility(
+                        R.id.widget_bg_image,
+                        android.view.View.GONE
+                );
+            }
         }
 
         /*
-         * Widget click
+         * OPEN APP WHEN WIDGET IS TAPPED
          */
-
-        Intent launchIntent =
+        Intent x =
                 new Intent(
-                        context,
+                        c,
                         MainActivity.class
                 );
 
-        PendingIntent pendingIntent =
+        PendingIntent pnd =
                 PendingIntent.getActivity(
-                        context,
+                        c,
                         0,
-                        launchIntent,
+                        x,
                         PendingIntent.FLAG_IMMUTABLE
                                 | PendingIntent.FLAG_UPDATE_CURRENT
                 );
 
-        views.setOnClickPendingIntent(
+        v.setOnClickPendingIntent(
                 R.id.widget_root,
-                pendingIntent
+                pnd
         );
 
-        manager.updateAppWidget(
+        /*
+         * UPDATE WIDGET
+         */
+        m.updateAppWidget(
                 id,
-                views
+                v
         );
     }
 }
