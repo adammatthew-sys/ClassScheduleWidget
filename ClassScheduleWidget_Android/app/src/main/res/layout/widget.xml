@@ -13,12 +13,11 @@
         android:contentDescription="@null" />
 
     <LinearLayout
+        android:id="@+id/widget_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:padding="10dp">
-
-        <!-- DATE -->
 
         <TextView
             android:id="@+id/widget_date"
@@ -31,7 +30,7 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- CURRENT CLASS -->
+        <!-- CURRENT CLASS SECTION -->
 
         <TextView
             android:id="@+id/widget_label"
@@ -42,17 +41,16 @@
             android:textColor="#777777"
             android:textSize="8sp"
             android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:maxLines="1" />
 
         <TextView
             android:id="@+id/widget_subject"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="No class scheduled"
+            android:text="Math"
             android:textColor="#FFFFFF"
-            android:textSize="17sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -62,12 +60,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="—"
+            android:text="9:00 AM - 9:30 AM"
             android:textColor="#BBBBBB"
             android:textSize="11sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/widget_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Ends in 20 min"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:maxLines="1" />
 
         <TextView
             android:id="@+id/widget_room"
@@ -76,7 +84,7 @@
             android:layout_marginTop="2dp"
             android:text=""
             android:textColor="#888888"
-            android:textSize="8sp"
+            android:textSize="9sp"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -87,11 +95,11 @@
             android:layout_marginTop="1dp"
             android:text=""
             android:textColor="#888888"
-            android:textSize="8sp"
+            android:textSize="9sp"
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- NEXT CLASS -->
+        <!-- NEXT CLASS SECTION -->
 
         <TextView
             android:id="@+id/widget_next_label"
@@ -102,15 +110,14 @@
             android:textColor="#777777"
             android:textSize="8sp"
             android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:maxLines="1" />
 
         <TextView
             android:id="@+id/widget_next_subject"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="No upcoming class"
+            android:text="Science"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -118,38 +125,14 @@
             android:ellipsize="end" />
 
         <TextView
-            android:id="@+id/widget_next_time"
+            android:id="@+id/widget_next_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="—"
+            android:text="Starts in 10 min"
             android:textColor="#BBBBBB"
             android:textSize="10sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/widget_next_room"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:text=""
-            android:textColor="#888888"
-            android:textSize="8sp"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/widget_next_teacher"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:text=""
-            android:textColor="#888888"
-            android:textSize="8sp"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:maxLines="1" />
 
     </LinearLayout>
 
