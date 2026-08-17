@@ -19,6 +19,9 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_UPDATE =
             "com.classeschedule.widget.UPDATE";
 
+    private static final long REFRESH_INTERVAL =
+            60 * 1000L;
+
     @Override
     public void onUpdate(
             Context c,
@@ -28,6 +31,20 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         for (int id : ids) {
             update(c, m, id);
         }
+
+        scheduleRefresh(c);
+    }
+
+    @Override
+    public void onEnabled(Context c) {
+        super.onEnabled(c);
+        scheduleRefresh(c);
+    }
+
+    @Override
+    public void onDisabled(Context c) {
+        super.onDisabled(c);
+        cancelRefresh(c);
     }
 
     @Override
@@ -45,7 +62,82 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 || Intent.ACTION_DATE_CHANGED.equals(a)) {
 
             refreshAll(c);
+            scheduleRefresh(c);
         }
+    }
+
+    private static void scheduleRefresh(Context c) {
+
+        AlarmManager alarm =
+                (AlarmManager) c.getSystemService(
+                        Context.ALARM_SERVICE
+                );
+
+        if (alarm == null) {
+            return;
+        }
+
+        Intent intent =
+                new Intent(
+                        c,
+                        ScheduleWidgetProvider.class
+                );
+
+        intent.setAction(ACTION_UPDATE);
+
+        PendingIntent pending =
+                PendingIntent.getBroadcast(
+                        c,
+                        1001,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                                | PendingIntent.FLAG_IMMUTABLE
+                );
+
+        long now =
+                System.currentTimeMillis();
+
+        long first =
+                ((now / REFRESH_INTERVAL) + 1)
+                        * REFRESH_INTERVAL;
+
+        alarm.setRepeating(
+                AlarmManager.RTC_WAKEUP,
+                first,
+                REFRESH_INTERVAL,
+                pending
+        );
+    }
+
+    private static void cancelRefresh(Context c) {
+
+        AlarmManager alarm =
+                (AlarmManager) c.getSystemService(
+                        Context.ALARM_SERVICE
+                );
+
+        if (alarm == null) {
+            return;
+        }
+
+        Intent intent =
+                new Intent(
+                        c,
+                        ScheduleWidgetProvider.class
+                );
+
+        intent.setAction(ACTION_UPDATE);
+
+        PendingIntent pending =
+                PendingIntent.getBroadcast(
+                        c,
+                        1001,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                                | PendingIntent.FLAG_IMMUTABLE
+                );
+
+        alarm.cancel(pending);
     }
 
     public static void refreshAll(Context c) {
@@ -108,6 +200,16 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
+    private static int todayIndex(Calendar now) {
+
+        int dow =
+                now.get(Calendar.DAY_OF_WEEK);
+
+        return dow == Calendar.SUNDAY
+                ? 6
+                : dow - Calendar.MONDAY;
+    }
+
     private static JSONObject currentClass(Context c) {
 
         try {
@@ -126,13 +228,8 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             Calendar now =
                     Calendar.getInstance();
 
-            int dow =
-                    now.get(Calendar.DAY_OF_WEEK);
-
             int today =
-                    dow == Calendar.SUNDAY
-                            ? 6
-                            : dow - Calendar.MONDAY;
+                    todayIndex(now);
 
             int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
@@ -185,7 +282,9 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         return null;
     }
 
-    private static JSONObject next(Context c) {
+    private static JSONObject nextClass(
+            Context c,
+            JSONObject current) {
 
         try {
 
@@ -203,13 +302,8 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             Calendar now =
                     Calendar.getInstance();
 
-            int dow =
-                    now.get(Calendar.DAY_OF_WEEK);
-
             int today =
-                    dow == Calendar.SUNDAY
-                            ? 6
-                            : dow - Calendar.MONDAY;
+                    todayIndex(now);
 
             int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
@@ -225,13 +319,20 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 JSONObject o =
                         a.getJSONObject(i);
 
+                if (current != null
+                        && o.toString().equals(
+                                current.toString()
+                        )) {
+                    continue;
+                }
+
                 int d =
                         o.optInt(
                                 "day",
                                 -1
                         );
 
-                int t =
+                int start =
                         minutes(
                                 o.optString(
                                         "start",
@@ -239,7 +340,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                                 )
                         );
 
-                if (d < 0 || d > 6 || t == 9999) {
+                if (d < 0 || d > 6 || start == 9999) {
                     continue;
                 }
 
@@ -248,7 +349,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
                 int score =
                         daysAhead * 1440
-                                + t
+                                + start
                                 - nowMin;
 
                 if (score <= 0) {
@@ -270,9 +371,6 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    /*
-     * COUNTDOWN FOR CURRENT CLASS
-     */
     private static String currentCountdown(
             JSONObject o,
             Calendar now) {
@@ -287,10 +385,6 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                             )
                     );
 
-            if (end == 9999) {
-                return "";
-            }
-
             int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
                             + now.get(Calendar.MINUTE);
@@ -298,7 +392,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             int remaining =
                     end - nowMin;
 
-            if (remaining <= 0) {
+            if (end == 9999 || remaining <= 0) {
                 return "";
             }
 
@@ -306,7 +400,9 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 return "Ends in 1 min";
             }
 
-            return "Ends in " + remaining + " min";
+            return "Ends in "
+                    + remaining
+                    + " min";
 
         } catch (Exception e) {
 
@@ -314,22 +410,11 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    /*
-     * COUNTDOWN FOR NEXT CLASS
-     */
     private static String nextCountdown(
             JSONObject o,
             Calendar now) {
 
         try {
-
-            int dow =
-                    now.get(Calendar.DAY_OF_WEEK);
-
-            int today =
-                    dow == Calendar.SUNDAY
-                            ? 6
-                            : dow - Calendar.MONDAY;
 
             int d =
                     o.optInt(
@@ -348,6 +433,9 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             if (d < 0 || d > 6 || start == 9999) {
                 return "";
             }
+
+            int today =
+                    todayIndex(now);
 
             int nowMin =
                     now.get(Calendar.HOUR_OF_DAY) * 60
@@ -380,12 +468,15 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                     return "Starts tomorrow";
                 }
 
-                return "Starts in " + days + " days";
+                return "Starts in "
+                        + days
+                        + " days";
             }
 
             if (hours > 0) {
 
                 if (mins > 0) {
+
                     return "Starts in "
                             + hours
                             + "h "
@@ -402,12 +493,135 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                 return "Starts soon";
             }
 
-            return "Starts in " + mins + " min";
+            return "Starts in "
+                    + mins
+                    + " min";
 
         } catch (Exception e) {
 
             return "";
         }
+    }
+
+    private static void setClassViews(
+            RemoteViews v,
+            int labelId,
+            int subjectId,
+            int timeId,
+            int roomId,
+            int teacherId,
+            JSONObject o,
+            String label,
+            String countdown) {
+
+        if (o == null) {
+
+            v.setViewVisibility(
+                    labelId,
+                    android.view.View.GONE
+            );
+
+            v.setViewVisibility(
+                    subjectId,
+                    android.view.View.GONE
+            );
+
+            v.setViewVisibility(
+                    timeId,
+                    android.view.View.GONE
+            );
+
+            v.setViewVisibility(
+                    roomId,
+                    android.view.View.GONE
+            );
+
+            v.setViewVisibility(
+                    teacherId,
+                    android.view.View.GONE
+            );
+
+            return;
+        }
+
+        v.setViewVisibility(
+                labelId,
+                android.view.View.VISIBLE
+        );
+
+        v.setViewVisibility(
+                subjectId,
+                android.view.View.VISIBLE
+        );
+
+        v.setViewVisibility(
+                timeId,
+                android.view.View.VISIBLE
+        );
+
+        v.setViewVisibility(
+                roomId,
+                android.view.View.VISIBLE
+        );
+
+        v.setViewVisibility(
+                teacherId,
+                android.view.View.VISIBLE
+        );
+
+        v.setTextViewText(
+                labelId,
+                label
+        );
+
+        v.setTextViewText(
+                subjectId,
+                o.optString(
+                        "subject",
+                        "Class"
+                )
+        );
+
+        String time =
+                o.optString(
+                        "start",
+                        ""
+                )
+                        + " - "
+                        + o.optString(
+                                "end",
+                                ""
+                        );
+
+        if (countdown != null
+                && !countdown.isEmpty()) {
+
+            time =
+                    time
+                            + " • "
+                            + countdown;
+        }
+
+        v.setTextViewText(
+                timeId,
+                time
+        );
+
+        v.setTextViewText(
+                roomId,
+                o.optString(
+                        "room",
+                        ""
+                )
+        );
+
+        v.setTextViewText(
+                teacherId,
+                o.optString(
+                        "teacher",
+                        ""
+                )
+        );
     }
 
     static void update(
@@ -421,8 +635,11 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
                         R.layout.widget
                 );
 
+        Calendar now =
+                Calendar.getInstance();
+
         /*
-         * CURRENT DATE
+         * DATE
          */
         SimpleDateFormat dateFormat =
                 new SimpleDateFormat(
@@ -432,7 +649,7 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
         String currentDate =
                 dateFormat.format(
-                        Calendar.getInstance().getTime()
+                        now.getTime()
                 );
 
         v.setTextViewText(
@@ -443,20 +660,73 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
         );
 
         /*
-         * CURRENT / NEXT CLASS
+         * CURRENT AND NEXT CLASS
          */
-        Calendar now =
-                Calendar.getInstance();
-
         JSONObject current =
                 currentClass(c);
 
-        JSONObject o =
-                current != null
-                        ? current
-                        : next(c);
+        JSONObject next =
+                nextClass(
+                        c,
+                        current
+                );
 
-        if (o == null) {
+        String currentCountdown =
+                current != null
+                        ? currentCountdown(
+                                current,
+                                now
+                        )
+                        : "";
+
+        String nextCountdown =
+                next != null
+                        ? nextCountdown(
+                                next,
+                                now
+                        )
+                        : "";
+
+        setClassViews(
+                v,
+                R.id.widget_label,
+                R.id.widget_subject,
+                R.id.widget_time,
+                R.id.widget_room,
+                R.id.widget_teacher,
+                current,
+                "CURRENT CLASS",
+                currentCountdown
+        );
+
+        setClassViews(
+                v,
+                R.id.widget_next_label,
+                R.id.widget_next_subject,
+                R.id.widget_next_time,
+                R.id.widget_next_room,
+                R.id.widget_next_teacher,
+                next,
+                "NEXT CLASS",
+                nextCountdown
+        );
+
+        if (current == null && next == null) {
+
+            v.setViewVisibility(
+                    R.id.widget_label,
+                    android.view.View.VISIBLE
+            );
+
+            v.setViewVisibility(
+                    R.id.widget_subject,
+                    android.view.View.VISIBLE
+            );
+
+            v.setViewVisibility(
+                    R.id.widget_time,
+                    android.view.View.VISIBLE
+            );
 
             v.setTextViewText(
                     R.id.widget_label,
@@ -471,95 +741,6 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
             v.setTextViewText(
                     R.id.widget_time,
                     "Open app to add your schedule"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_room,
-                    ""
-            );
-
-            v.setTextViewText(
-                    R.id.widget_teacher,
-                    ""
-            );
-
-        } else {
-
-            boolean isCurrent =
-                    current != null;
-
-            v.setTextViewText(
-                    R.id.widget_label,
-                    isCurrent
-                            ? "CURRENT CLASS"
-                            : "NEXT CLASS"
-            );
-
-            v.setTextViewText(
-                    R.id.widget_subject,
-                    o.optString(
-                            "subject",
-                            "Class"
-                    )
-            );
-
-            String time =
-                    o.optString(
-                            "start",
-                            ""
-                    )
-                            + " - "
-                            + o.optString(
-                                    "end",
-                                    ""
-                            );
-
-            String countdown;
-
-            if (isCurrent) {
-
-                countdown =
-                        currentCountdown(
-                                o,
-                                now
-                        );
-
-            } else {
-
-                countdown =
-                        nextCountdown(
-                                o,
-                                now
-                        );
-            }
-
-            if (!countdown.isEmpty()) {
-
-                time =
-                        time
-                                + " • "
-                                + countdown;
-            }
-
-            v.setTextViewText(
-                    R.id.widget_time,
-                    time
-            );
-
-            v.setTextViewText(
-                    R.id.widget_room,
-                    o.optString(
-                            "room",
-                            ""
-                    )
-            );
-
-            v.setTextViewText(
-                    R.id.widget_teacher,
-                    o.optString(
-                            "teacher",
-                            ""
-                    )
             );
         }
 
@@ -630,6 +811,31 @@ public class ScheduleWidgetProvider extends AppWidgetProvider {
 
         v.setTextColor(
                 R.id.widget_teacher,
+                text
+        );
+
+        v.setTextColor(
+                R.id.widget_next_label,
+                text
+        );
+
+        v.setTextColor(
+                R.id.widget_next_subject,
+                text
+        );
+
+        v.setTextColor(
+                R.id.widget_next_time,
+                text
+        );
+
+        v.setTextColor(
+                R.id.widget_next_room,
+                text
+        );
+
+        v.setTextColor(
+                R.id.widget_next_teacher,
                 text
         );
 
