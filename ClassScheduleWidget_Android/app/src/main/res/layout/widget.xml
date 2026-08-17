@@ -30,7 +30,7 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- CURRENT CLASS SECTION -->
+        <!-- CURRENT / NEXT DISPLAY -->
 
         <TextView
             android:id="@+id/widget_label"
@@ -99,7 +99,7 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- NEXT CLASS SECTION -->
+        <!-- NEXT CLASS -->
 
         <TextView
             android:id="@+id/widget_next_label"
@@ -133,6 +133,31 @@
             android:textColor="#BBBBBB"
             android:textSize="10sp"
             android:maxLines="1" />
+
+        <!--
+            Hidden compatibility fields.
+            ScheduleWidgetProvider.java currently references
+            these IDs, so they must exist even though we
+            don't display them.
+        -->
+
+        <TextView
+            android:id="@+id/widget_next_time"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_next_room"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_next_teacher"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
 
     </LinearLayout>
 
